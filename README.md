@@ -6,17 +6,19 @@ VÉRIF est une PWA mobile-first destinée à aider le grand public à analyser r
 
 ## État du projet
 
-La branche `dev/verif-v2` contient le socle V2 :
+La branche `dev/verif-v2` contient le socle produit et une première API serveur :
 
 - React + TypeScript + Vite
 - interface mobile-first et responsive PC
 - PWA-ready (manifest + cache service worker)
 - analyse locale explicable
+- API Node sans dépendance serveur lourde
+- inspection d'URL et registre initial de domaines officiels
+- détection de discordance organisme/domaine
 - verdicts `OK`, `À VÉRIFIER`, `PRUDENCE`, `STOP`
 - raisons détectées et actions recommandées
-- historique local de session
-- tests unitaires du moteur de verdict
-- pipeline GitHub Actions pour vérifier build et tests
+- tests frontend + moteur serveur
+- pipeline GitHub Actions
 
 ## Développement local
 
@@ -25,53 +27,58 @@ npm install
 npm run dev
 ```
 
+Dans un second terminal :
+
+```bash
+npm run api
+```
+
+API : `POST /api/analyze` avec `{ "text": "..." }`.
+
 ## Validation
 
 ```bash
 npm test
+npm run test:api
 npm run build
 ```
 
-## Architecture prévue pour V2+
+## Architecture
 
 ```text
-Entrée utilisateur
-  ├─ texte / SMS / e-mail
-  ├─ URL
-  ├─ capture / photo
-  └─ partage depuis smartphone
-          ↓
-Extraction / OCR
-          ↓
-Normalisation
-          ↓
-Analyse des signaux
-          ↓
-Vérification URL / domaine / source
-          ↓
-Moteur de règles explicable
-          ↓
-Analyse IA contrôlée
-          ↓
-Verdict + preuves + action sûre
+SMS / e-mail / URL / capture / partage smartphone
+                ↓
+        Extraction / OCR
+                ↓
+          Normalisation
+                ↓
+      Signaux déterministes
+                ↓
+  URL / domaine / sources officielles
+                ↓
+       Moteur de règles
+                ↓
+       IA contrôlée (V2+)
+                ↓
+    Verdict + preuves + action
 ```
 
-### Principe important
+### Sources et garde-fous
+
+Les conseils de protection suivent notamment les recommandations publiques de Cybermalveillance.gouv.fr : ne pas agir depuis un lien douteux, vérifier directement auprès de l'organisme concerné et conserver les preuves en cas d'incident.
 
 VÉRIF ne doit jamais transformer une analyse probabiliste en certitude. Le produit doit pouvoir répondre **« je ne sais pas »** et montrer pourquoi une vérification supplémentaire est nécessaire.
 
-Le moteur actuel est volontairement local et heuristique. Il ne constitue pas un service de cybersécurité et ne garantit jamais qu'un contenu est sûr.
+Le moteur actuel est un prototype : il ne constitue pas un service de cybersécurité et ne garantit jamais qu'un contenu est sûr.
 
-## Prochaine brique produit
+## Suite
 
-La prochaine étape technique est de brancher :
-
-1. OCR réel pour les captures/photos ;
-2. analyse réelle des URL et redirections ;
-3. registre de domaines officiels et sources fiables ;
-4. backend sécurisé ;
-5. moteur de règles versionné ;
-6. analyse IA avec sorties structurées et garde-fous ;
-7. tests de non-régression sur un corpus de messages légitimes et frauduleux ;
-8. partage smartphone et deep-links ;
-9. observabilité et protection anti-abus.
+- OCR réel pour captures/photos ;
+- vérification serveur des URL/redirections ;
+- registre officiel versionné et maintenable ;
+- réputation de domaine avec sources externes ;
+- analyse IA structurée, après les contrôles déterministes ;
+- corpus de tests et non-régression ;
+- partage smartphone et deep-links ;
+- rate limiting, observabilité et protection anti-abus ;
+- politique de confidentialité et minimisation des données avant mise en production.

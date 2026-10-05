@@ -17,7 +17,7 @@ const cases = [
   ["Cliquez ici pour suivre votre colis https://bit.ly/abc123", "caution"],
   ["Connectez-vous immédiatement https://192.0.2.10/login pour éviter le blocage.", "stop"],
   ["Votre compte doit être vérifié https://example.com/redirect?url=https://fake.example", "caution"],
-  ["Installez cette application APK pour recevoir votre remboursement https://fake.example/app.apk", "caution"],
+  ["Installez cette application APK pour recevoir votre remboursement https://fake.example/app.apk", "stop"],
   ["Votre dossier administratif est disponible : https://www.impots.gouv.fr/", "ok"],
   ["Votre espace Ameli est accessible ici : https://www.ameli.fr/", "ok"],
   ["Votre colis arrive demain. Le suivi est disponible sur notre site.", "ok"],

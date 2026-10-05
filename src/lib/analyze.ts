@@ -176,7 +176,7 @@ export function analyzeText(input:string):Analysis{
   const cta=/cliquez|clique|connectez-vous|ouvrez le lien|confirmez|régularisez|payez|mettez à jour|vérifiez votre compte|consultez le lien/i.test(lower);
   const delivery=/colis|livraison|chronopost|colissimo|la poste|mondial relay|dpd|ups|dhl|fedex|frais de livraison/i.test(lower);
   const admin=/impôt|impots|amende|caf|ameli|france travail|urssaf|service[- ]public|administration|ants/i.test(lower);
-  const download=/télécharger|download|apk|installer|pièce jointe|fichier/i.test(lower);
+  const download=/télécharg(?:er|ez|ement)|telecharg(?:er|ez|ement)|download|apk|install(?:er|ez|ation)|pièce jointe|fichier/i.test(lower);
   const refund=/remboursement|remboursé|rembourser|trop[- ]perçu|indemnité/i.test(lower);
   const phone=/(?:\+33|0)[1-9](?:[ .-]?\d{2}){4}/.test(text);
 

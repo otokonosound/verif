@@ -1,9 +1,8 @@
 import { URL } from "node:url";
 
-const OFFICIAL = {
-  "service-public.fr":"Service-Public.fr","impots.gouv.fr":"Impots.gouv.fr","ameli.fr":"Assurance Maladie","laposte.fr":"La Poste","chronopost.fr":"Chronopost","ants.gouv.fr":"ANTS","amendes.gouv.fr":"ANTAI / Amendes.gouv.fr","cybermalveillance.gouv.fr":"Cybermalveillance.gouv.fr","gouv.fr":"Gouvernement français","caf.fr":"CAF","francetravail.fr":"France Travail","urssaf.fr":"Urssaf","sncf-connect.com":"SNCF Connect","orange.fr":"Orange","sfr.fr":"SFR","free.fr":"Free","bouyguestelecom.fr":"Bouygues Telecom"
-};
-const BRAND_HINTS=[["impots","impots.gouv.fr"],["ameli","ameli.fr"],["la poste","laposte.fr"],["chronopost","chronopost.fr"],["antai","amendes.gouv.fr"],["service-public","service-public.fr"],["cybermalveillance","cybermalveillance.gouv.fr"],["caf","caf.fr"],["france travail","francetravail.fr"],["urssaf","urssaf.fr"],["sncf","sncf-connect.com"],["orange","orange.fr"],["sfr","sfr.fr"],["free","free.fr"],["bouygues","bouyguestelecom.fr"]];
+import { OFFICIAL_ENTITIES } from "./official-registry.mjs";
+
+const OFFICIAL = Object.fromEntries(Object.entries(OFFICIAL_ENTITIES).map(([domain, meta]) => [domain, meta.name]));const BRAND_HINTS=Object.entries(OFFICIAL_ENTITIES).flatMap(([domain, meta])=>meta.aliases.map(alias=>[alias,domain]));
 const PUBLIC_SUFFIXES=new Set(["co.uk","org.uk","ac.uk","com.au","co.jp"]);
 const FREE_MAIL_DOMAINS=new Set(["gmail.com","outlook.com","hotmail.com","live.com","yahoo.com","proton.me","protonmail.com","icloud.com"]);
 function similarity(a,b){const s=a.toLowerCase(),t=b.toLowerCase();const d=Array.from({length:t.length+1},(_,i)=>i);for(let i=1;i<=s.length;i++){let prev=d[0];d[0]=i;for(let j=1;j<=t.length;j++){const cur=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,prev+(s[i-1]===t[j-1]?0:1));prev=cur}}return 1-d[t.length]/Math.max(s.length,t.length,1)}

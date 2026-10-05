@@ -57,3 +57,58 @@ footer{background:#f3f7f5}
   .trust span{border-radius:12px;padding:8px 10px}
   .resultCard{box-shadow:0 15px 45px rgba(16,55,45,.09)}
 }
+
+
+/* V1 final polish — interaction, accessibility and mobile finish */
+button:focus-visible,a:focus-visible,textarea:focus-visible{
+  outline:3px solid rgba(18,107,87,.28);
+  outline-offset:2px;
+}
+.primary:disabled{
+  background:#b7c9c3;
+  color:#f7fbf9;
+  opacity:1;
+  box-shadow:none;
+}
+.tool:active,.secondary:active,.back:active{
+  transform:translateY(1px);
+}
+textarea{
+  -webkit-tap-highlight-color:transparent;
+}
+@media(max-width:700px){
+  body{
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .topbar{
+    padding-left:max(15px,env(safe-area-inset-left));
+    padding-right:max(15px,env(safe-area-inset-right));
+  }
+  .brand{
+    font-size:23px;
+  }
+  .hero p{
+    line-height:1.45;
+  }
+  .composer textarea{
+    line-height:1.45;
+  }
+  .tool{
+    width:100%;
+    min-width:0;
+  }
+  .primary{
+    min-height:56px;
+  }
+  .resultTopline{
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    scroll-behavior:auto!important;
+    transition:none!important;
+    animation:none!important;
+  }
+}

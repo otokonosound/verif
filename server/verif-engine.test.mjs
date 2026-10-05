@@ -11,3 +11,7 @@ test("does not invent a risk without signals",()=>{const r=analyzeMessage("Bonjo
 test("detects shortened URLs",()=>{const r=analyzeMessage("Clique ici https://bit.ly/secure-now");assert.ok(r.reasons.some(x=>x.includes("raccourcissement")));assert.ok(r.verdict!=="ok")});
 test("detects bare www URLs",()=>{const r=analyzeMessage("Visitez www.example.com/login");assert.equal(r.urls.length,1)});
 test("detects redirect parameters",()=>{const r=analyzeMessage("https://example.com/?redirect=https://other.example");assert.ok(r.reasons.some(x=>x.includes("redirection")))});
+
+
+test("detects lookalike official domain",()=>{const r=analyzeMessage("Votre compte Ameli: https://amelii.fr/connexion");assert.ok(r.reasons.some(x=>x.includes("ressemble")));assert.equal(r.verdict,"stop")});
+test("recognizes added official registry",()=>{const r=analyzeMessage("Information CAF: https://caf.fr/");assert.equal(r.urls[0].official,"CAF")});

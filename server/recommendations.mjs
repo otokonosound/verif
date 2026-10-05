@@ -170,3 +170,49 @@ export function buildRecommendation(text, analysis = {}) {
     resource: base.resource
   };
 }
+
+export function buildIncidentReport(text, analysis = {}, incident = "none") {
+  const recommendation = analysis.recommendation || {};
+  const incidentLabels = {
+    none: "Aucune action déclarée",
+    clicked: "Lien ouvert",
+    info: "Informations transmises",
+    paid: "Paiement effectué"
+  };
+  const lines = [
+    "VÉRIF — DOSSIER D'INCIDENT",
+    "",
+    "Date d'analyse : " + (analysis.checkedAt || new Date().toISOString()),
+    "Verdict : " + String(analysis.verdict || "inconnu").toUpperCase(),
+    "Scénario : " + (recommendation.label || "Non déterminé"),
+    "Situation déclarée : " + (incidentLabels[incident] || incident),
+    "Score de risque : " + (analysis.evidence?.risk ?? "non calculé"),
+    "",
+    "RÉSUMÉ",
+    analysis.summary || "Aucun résumé disponible.",
+    "",
+    "EXPÉDITEUR",
+    analysis.identity?.sender || analysis.evidence?.sender || "Non détecté",
+    "Domaine expéditeur : " + (analysis.identity?.senderDomain || analysis.evidence?.senderDomain || "Non détecté"),
+    "Domaine officiel attendu : " + (analysis.identity?.officialDomain || analysis.evidence?.officialDomain || "Non déterminé"),
+    "",
+    "LIENS DÉTECTÉS",
+    ...(analysis.evidence?.urls?.length ? analysis.evidence.urls.map((url) => "- " + url) : ["- Aucun"]),
+    "",
+    "SIGNAUX",
+    ...(analysis.reasons?.length ? analysis.reasons.map((reason) => "- " + reason) : ["- Aucun"]),
+    "",
+    "PREUVES TECHNIQUES",
+    "Reply-To : " + (analysis.evidence?.headers?.replyTo || "Non détecté"),
+    "Return-Path : " + (analysis.evidence?.headers?.returnPath || "Non détecté"),
+    "Received : " + (analysis.evidence?.headers?.receivedCount ?? 0) + " en-tête(s)",
+    "",
+    "À CONSERVER",
+    "- Message ou capture originale",
+    "- URL complète",
+    "- Adresse de l'expéditeur",
+    "- Captures d'écran",
+    "- Preuves de paiement si concerné"
+  ];
+  return lines.join("\n");
+}

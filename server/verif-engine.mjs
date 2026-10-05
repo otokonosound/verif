@@ -3,8 +3,9 @@ import { URL } from "node:url";
 const OFFICIAL = {
   "service-public.fr":"Service-Public.fr","impots.gouv.fr":"Impots.gouv.fr","ameli.fr":"Assurance Maladie","laposte.fr":"La Poste","chronopost.fr":"Chronopost","ants.gouv.fr":"ANTS","amendes.gouv.fr":"ANTAI / Amendes.gouv.fr","cybermalveillance.gouv.fr":"Cybermalveillance.gouv.fr","gouv.fr":"Gouvernement français"
 };
-const BRAND_HINTS=[["impots","impots.gouv.fr"],["ameli","ameli.fr"],["la poste","laposte.fr"],["chronopost","chronopost.fr"],["antai","amendes.gouv.fr"],["service-public","service-public.fr"],["cybermalveillance","cybermalveillance.gouv.fr"]];
+const BRAND_HINTS=[["impots","impots.gouv.fr"],["ameli","ameli.fr"],["la poste","laposte.fr"],["chronopost","chronopost.fr"],["antai","amendes.gouv.fr"],["service-public","service-public.fr"],["cybermalveillance","cybermalveillance.gouv.fr"],["caf","caf.fr"],["france travail","francetravail.fr"],["urssaf","urssaf.fr"],["sncf","sncf-connect.com"],["orange","orange.fr"],["sfr","sfr.fr"],["free","free.fr"],["bouygues","bouyguestelecom.fr"]];
 const PUBLIC_SUFFIXES=new Set(["co.uk","org.uk","ac.uk","com.au","co.jp"]);
+function similarity(a,b){const s=a.toLowerCase(),t=b.toLowerCase();const d=Array.from({length:t.length+1},(_,i)=>i);for(let i=1;i<=s.length;i++){let prev=d[0];d[0]=i;for(let j=1;j<=t.length;j++){const cur=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,prev+(s[i-1]===t[j-1]?0:1));prev=cur}}return 1-d[t.length]/Math.max(s.length,t.length,1)}
 function rootDomain(hostname){const h=hostname.toLowerCase().replace(/^www\./,"");const p=h.split(".");if(p.length<2)return h;const last2=p.slice(-2).join(".");return PUBLIC_SUFFIXES.has(last2)&&p.length>=3?p.slice(-3).join("."):last2}
 function extractUrls(text){
   const direct=[...text.matchAll(/https?:\/\/[^\s<>'"`]+/gi)].map(m=>m[0].replace(/[),.;!?]+$/,""));
@@ -23,6 +24,7 @@ export function analyzeMessage(text){
  if(/mot de passe|code|identifiant|connexion|numéro de carte|cryptogramme|cvv/.test(lower)){reasons.push("Le contenu évoque des informations d'authentification ou bancaires.");risk+=2}
  const mismatch=BRAND_HINTS.find(([hint,domain])=>lower.includes(hint)&&urls.length&&!urls.some(u=>u.rootDomain===domain));
  if(mismatch){reasons.push(`Le message cite « ${mismatch[0]} » mais aucun lien ne correspond au domaine officiel ${mismatch[1]}.`);risk+=3}
+ for(const u of urls){if(u.rootDomain&&!OFFICIAL[u.rootDomain]){const near=Object.keys(OFFICIAL).map(d=>({d,score:similarity(u.rootDomain,d)})).sort((a,b)=>b.score-a.score)[0];if(near&&near.score>=0.72){reasons.push(`Le domaine « ${u.rootDomain} » ressemble à « ${near.d} » sans être le domaine officiel.`);risk+=3}}}
  for(const u of urls)for(const f of u.findings){reasons.push(f);risk+=2}
  let verdict="ok",title="Aucun signal préoccupant détecté",confidence="faible";
  if(risk>=7){verdict="stop";title="N'agis pas tout de suite";confidence="élevée"}else if(risk>=4){verdict="caution";title="Prudence";confidence="moyenne"}else if(risk>=1){verdict="check";title="À vérifier";confidence="moyenne"}

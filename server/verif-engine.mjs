@@ -1,6 +1,7 @@
 import { URL } from "node:url";
 
 import { OFFICIAL_ENTITIES } from "./official-registry.mjs";
+import { buildRecommendation } from "./recommendations.mjs";
 
 const OFFICIAL = Object.fromEntries(Object.entries(OFFICIAL_ENTITIES).map(([domain, meta]) => [domain, meta.name]));const BRAND_HINTS=Object.entries(OFFICIAL_ENTITIES).flatMap(([domain, meta])=>meta.aliases.map(alias=>[alias,domain]));
 const PUBLIC_SUFFIXES=new Set(["co.uk","org.uk","ac.uk","com.au","co.jp"]);
@@ -34,7 +35,9 @@ export function analyzeMessage(text){
  const summary=verdict==="stop"?"Plusieurs signaux compatibles avec une tentative de fraude ont été détectés.":verdict==="caution"?"Plusieurs éléments méritent une vérification indépendante.":verdict==="check"?"Un élément mérite une vérification avant d'agir.":"Aucun signal de risque évident n'a été identifié dans le contenu fourni.";
  const actions=verdict==="stop"?["N'utilise pas le lien reçu.","Ouvre toi-même le site ou l'application officielle.","Ne communique aucun code, mot de passe ou donnée bancaire."]:verdict==="caution"?["N'agis pas depuis le message.","Vérifie l'organisme par un canal indépendant."]:["Compare le contenu avec la source officielle avant d'agir."];
  const evidence={urls:urls.map(u=>u.url),sender:sender?.email||null,senderDomain:sender?.rootDomain||null,officialDomain:claimed?.[1]||null,intent,risk,headers:{from:headers.from,replyTo:headers.replyTo,returnPath:headers.returnPath,receivedCount:headers.received.length},urlFindings:urls.flatMap(u=>u.findings)};
- return{verdict,title,summary,confidence,reasons,actions,urls,identity,intent,evidence,checkedAt:new Date().toISOString(),engine:"rules-v0.4"};
+ const partial={verdict,title,summary,confidence,reasons,actions,urls,identity,intent,evidence};
+ const recommendation=buildRecommendation(text,partial);
+ return{...partial,recommendation,checkedAt:new Date().toISOString(),engine:"rules-v0.5"};
 }
 
 import { getAiSecondOpinion, mergeAiOpinion } from "./ai.mjs";

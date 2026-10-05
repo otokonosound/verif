@@ -14,7 +14,7 @@ function extractSender(text){const m=text.match(/(?:^|\n)\s*(?:from|de|expédite
 function inferIntent(text){const l=text.toLowerCase();if(/carte bancaire|numéro de carte|cvv|cryptogramme|virement|paiement|payez|frais|€/.test(l))return"finance";if(/mot de passe|identifiant|connexion|code de sécurité|otp|double authentification/.test(l))return"credentials";if(/colis|livraison|chronopost|laposte|mondial relay/.test(l))return"delivery";if(/impôt|amende|caf|ameli|france travail|urssaf|remboursement|administratif/.test(l))return"administrative";if(/urgent|immédiat|suspendu|bloqué|dernière chance/.test(l))return"pressure";return"generic"}
 export function analyzeMessage(text){
  const urls=extractUrls(text).map(inspectUrl);const sender=extractSender(text);const lower=text.toLowerCase();const reasons=[];let risk=0;
- if(urls.length){reasons.push(`${urls.length} lien${urls.length>1?"s":"} détecté${urls.length>1?"s":""}.`);risk+=1}
+ if(urls.length){reasons.push(`${urls.length} lien${urls.length>1?"s":""} détecté${urls.length>1?"s":""}.`);risk+=1}
  if(/bit\.ly|tinyurl\.com|t\.co|goo\.gl|ow\.ly|is\.gd|cutt\.ly|shorturl\.at/i.test(text)){reasons.push("Un service de raccourcissement d'URL est présent.");risk+=2}
  if(/data:text\/html|javascript:/i.test(text)){reasons.push("Le contenu contient un schéma d'URL exécutable.");risk+=4}
  if(urls.some(u=>/[?&](redirect|url|target|dest)=/i.test(u.url))){reasons.push("Un lien contient un paramètre de redirection.");risk+=1}

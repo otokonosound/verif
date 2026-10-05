@@ -70,7 +70,7 @@ export function analyzeText(input:string):Analysis {
   if(suspiciousUrl) score+=2;
   if(officialUrl) score=Math.max(0,score-1);
 
-  const verdict:Verdict=score>=4?"stop":score>=2?"caution":score===1?"check":"ok";
+  const verdict:Verdict=score>=3?"stop":score>=2?"caution":score===1?"check":"ok";
   const scenarioName=scenario(text,suspiciousUrl);
   const rec=recommendation(scenarioName);
   if(verdict==="ok") return {verdict,title:"Aucun signal évident détecté",summary:"Le moteur local n’a trouvé aucun signal évident de fraude dans le contenu fourni.",reasons:["Aucun signal de risque évident n’a été détecté."],actions:["Si le message est inattendu, vérifie quand même l’organisme depuis son site ou son application officielle.","Ne communique jamais un code ou un mot de passe simplement parce qu’un message le demande."],confidence:"faible",engine:"VÉRIF local",checkedAt,urls:urlData,evidence:{risk:0,urlFindings:urlData.flatMap(u=>u.findings)}};

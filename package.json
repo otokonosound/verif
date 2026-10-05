@@ -23,10 +23,11 @@
     "pdfjs-dist": "5.4.149",
     "mammoth": "1.11.0",
     "xlsx": "0.18.5",
-    "jszip": "3.10.1"
+    "jszip": "3.10.1",
+    "pako": "2.1.0"
   },
   "devDependencies": {
     "vitest": "latest",
     "jsdom": "latest"
   }
-}
+}\n

@@ -158,7 +158,7 @@ export function analyzeText(input:string):Analysis{
         if(SHORTENERS.test(host))findings.push("Lien raccourci : la destination réelle est masquée.");
         if(/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host))findings.push("Le lien utilise directement une adresse IP.");
         if(host.includes("xn--"))findings.push("Le domaine utilise une représentation internationale potentiellement trompeuse.");
-        if(/[\\u200B-\\u200D\\u2060\\uFEFF]/.test(url))findings.push("L’URL contient des caractères invisibles.");
+        if(/[\u200B-\u200D\u2060\uFEFF]/.test(url))findings.push("L’URL contient des caractères invisibles.");
         if(u.username||u.password)findings.push("L’URL contient des informations avant le domaine.");
         if(u.port&&u.port!=="80"&&u.port!=="443")findings.push("Le lien utilise un port réseau inhabituel.");
         if(/[?&](redirect|url|target|dest|continue|next|return|redirect_uri)=/i.test(u.search))findings.push("Le lien contient un paramètre de redirection.");

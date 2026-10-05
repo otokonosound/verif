@@ -9,7 +9,7 @@
   "background_color": "#f4f7f5",
   "theme_color": "#173d34",
   "lang": "fr-FR",
-  "description": "VÉRIF aide à comprendre si un SMS, e-mail, lien ou contenu reçu présente des signaux de fraude.",
+  "description": "VÉRIF analyse localement les SMS, e-mails, liens, QR codes, captures et documents pour aider à détecter les signaux de fraude.",
   "categories": ["security","utilities"],
   "icons": [
     {"src": "/verif/icon.svg","sizes": "any","type": "image/svg+xml","purpose": "any maskable"}

@@ -1,5 +1,5 @@
 const BASE="/verif/";
-const CACHE="verif-v4";
+const CACHE="verif-v5";
 const APP_SHELL=[BASE,BASE+"index.html",BASE+"manifest.webmanifest",BASE+"icon.svg"];
 
 self.addEventListener("install",event=>{

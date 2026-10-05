@@ -13,6 +13,7 @@ La branche `dev/verif-v2` contient le socle produit et une première API serveur
 - PWA-ready (manifest + cache service worker)
 - analyse locale explicable
 - API Node sans dépendance serveur lourde
+- second avis IA optionnel via Hugging Face Inference Providers, avec repli automatique sur le moteur local
 - inspection d'URL et registre initial de domaines officiels
 - détection de discordance organisme/domaine
 - verdicts `OK`, `À VÉRIFIER`, `PRUDENCE`, `STOP`
@@ -63,6 +64,12 @@ SMS / e-mail / URL / capture / partage smartphone
     Verdict + preuves + action
 ```
 
+### IA sans API OpenAI payante
+
+VÉRIF n'utilise pas l'API OpenAI. Le moteur local reste toujours disponible. Pour activer un second avis IA, le serveur peut utiliser un token Hugging Face (`HF_TOKEN`) et le modèle `openai/gpt-oss-20b:cheapest`. Hugging Face fournit actuellement un petit crédit mensuel aux comptes gratuits pour Inference Providers ; l'utilisation supplémentaire n'est pas incluse gratuitement. Le token doit rester côté serveur et ne doit jamais être placé dans le frontend ou l'APK.
+
+Sans `HF_TOKEN`, aucune IA distante n'est appelée et VÉRIF fonctionne avec ses contrôles déterministes et son OCR local.
+
 ### Sources et garde-fous
 
 Les conseils de protection suivent notamment les recommandations publiques de Cybermalveillance.gouv.fr : ne pas agir depuis un lien douteux, vérifier directement auprès de l'organisme concerné et conserver les preuves en cas d'incident.
@@ -78,6 +85,7 @@ Le moteur actuel est un prototype : il ne constitue pas un service de cybersécu
 - registre officiel versionné et maintenable ;
 - réputation de domaine avec sources externes ;
 - analyse IA structurée, après les contrôles déterministes ;
+- second avis IA optionnel avec retour automatique au moteur local ;
 - corpus de tests et non-régression ;
 - partage smartphone et deep-links ;
 - rate limiting, observabilité et protection anti-abus ;

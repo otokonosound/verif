@@ -23,3 +23,12 @@ export function analyzeMessage(text){
  const actions=verdict==="stop"?["N'utilise pas le lien reçu.","Ouvre toi-même le site ou l'application officielle.","Ne communique aucun code, mot de passe ou donnée bancaire."]:verdict==="caution"?["N'agis pas depuis le message.","Vérifie l'organisme par un canal indépendant."]:["Compare le contenu avec la source officielle avant d'agir."];
  return{verdict,title,summary,confidence,reasons,actions,urls,checkedAt:new Date().toISOString(),engine:"rules-v0.3"};
 }
+
+
+import { getAiSecondOpinion, mergeAiOpinion } from "./ai.mjs";
+
+export async function analyzeMessageWithAI(text) {
+  const deterministic = analyzeMessage(text);
+  const ai = await getAiSecondOpinion(text, deterministic);
+  return mergeAiOpinion(deterministic, ai);
+}

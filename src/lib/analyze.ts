@@ -17,7 +17,7 @@ const OFFICIAL:Record<string,string> = {
   "orange.fr":"Orange","sfr.fr":"SFR","free.fr":"Free","bouyguestelecom.fr":"Bouygues Telecom"
 };
 const SHORTENERS=/^(?:www\.)?(?:bit\.ly|tinyurl\.com|t\.co|cutt\.ly|shorturl\.at|ow\.ly|is\.gd|goo\.gl)$/i;
-const MULTI_LABEL_SUFFIXES=new Set(["co.uk","com.au","co.nz","co.jp"]);
+const MULTI_LABEL_SUFFIXES=new Set(["co.uk","com.au","co.nz","co.jp","gouv.fr"]);
 
 function rootDomain(host:string){
   const h=host.toLowerCase().replace(/^www\./,"");
@@ -104,7 +104,7 @@ export function analyzeText(input:string):Analysis{
 
   for(const f of urlData.flatMap(u=>u.findings).filter(f=>!/Domaine officiel reconnu/i.test(f))){
     reasons.push(f);
-    risk+=/Lien raccourci|redirection/i.test(f)?3:/adresse IP|représentation internationale|informations avant|port réseau/i.test(f)?3:2;
+    risk+=/Lien raccourci|redirection/i.test(f)?2:/adresse IP|représentation internationale|informations avant|port réseau/i.test(f)?3:2;
   }
 
   const claimed=(Object.entries(OFFICIAL) as Array<[string,string]>).find(([domain,name])=>[name,domain,domain.split(".")[0]].some(a=>lower.includes(a.toLowerCase())));
@@ -144,8 +144,8 @@ export function analyzeText(input:string):Analysis{
   if(foundUrls.length&&finance&&urgency)risk+=2;
   if(foundUrls.length&&credentials&&urgency)risk+=2;
   if(foundUrls.length&&(delivery||admin)&&(finance||credentials||cta))risk+=2;
-  if(download&&foundUrls.length)risk+=2;
-  if(foundUrls.length&&refund&&cta)risk+=2;
+  if(download&&foundUrls.length)risk+=3;
+  if(foundUrls.length&&refund&&cta)risk+=4;
 
   const hasOfficialUrl=foundUrls.length>0&&urlData.every(u=>u.official);
   if(hasOfficialUrl&&!urgency&&!credentials&&!urlData.some(u=>u.findings.some(f=>!/Domaine officiel reconnu/i.test(f)))){

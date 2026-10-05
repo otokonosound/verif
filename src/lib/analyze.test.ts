@@ -16,7 +16,7 @@ describe("analyzeText",()=>{
     expect(r.urls?.[0].official).toBe("Service-Public.fr");
   });
   it("flags a suspicious lookalike delivery domain",()=>{
-    const r=analyzeText("Votre colis est bloqué. Payez 2,99 € immédiatement https://chronopost-secure.example/paiment");
+    const r=analyzeText("Votre colis est bloqué. Payez 2,99 € immédiatement https://chronop0st.fr/paiment");
     expect(["stop","caution"]).toContain(r.verdict);
     expect(r.reasons.some(x=>x.toLowerCase().includes("domaine"))).toBe(true);
   });

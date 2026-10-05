@@ -82,7 +82,7 @@ function urlsIn(text:string){
   return [...new Set([...direct,...bare])];
 }
 function domainOf(u:string){try{return new URL(u).hostname.toLowerCase()}catch{return null}}
-function officialFor(host:string){const root=rootDomain(host);return REGISTRY.find(e=>e.domain===root)?.name||null}
+function officialFor(host:string){const h=host.toLowerCase().replace(/^www\./,"");const root=rootDomain(h);return REGISTRY.find(e=>e.domain===h||e.domain===root)?.name||null}
 function entryForName(name:string){const n=name.toLowerCase();return REGISTRY.find(e=>e.name.toLowerCase()===n)||null}
 function similarity(a:string,b:string){
   const s=a.toLowerCase(),t=b.toLowerCase();
@@ -169,7 +169,7 @@ export function analyzeText(input:string):Analysis{
   });
 
   let risk=0;
-  const finance=/paiement|payez|payer|virement|carte bancaire|iban|rib|frais|\b\d+[,.]?\d+\s*(?:€|eur)\b|cvv|cryptogramme/i.test(lower);
+  const finance=/paiement|payez|payer|virement|carte bancaire|iban|rib|frais|(?:\b\d{1,6}(?:[.,]\d{1,2})?\s*(?:€|eur)(?!\w))|cvv|cryptogramme/i.test(lower);
   const urgency=/urgent|urgence|immédiat|immédiatement|dans\s+\d+\s*(?:min|minute|h|heure|jour)|dernière chance|dernier avertissement|suspendu|bloqué|sera clôturé|expir/i.test(lower);
   const credentials=/mot de passe|identifiant|connexion|code de sécurité|code de vérification|otp|double authentification|numéro de carte|cvv|cryptogramme/i.test(lower);
   const cta=/cliquez|clique|connectez-vous|ouvrez le lien|confirmez|régularisez|payez|mettez à jour|vérifiez votre compte|consultez le lien/i.test(lower);

@@ -43,6 +43,22 @@ describe("VÉRIF v1 — matrice red-team étendue", () => {
     });
   }
 
+
+  it("forces a strong verdict for an impersonated France Travail domain", () => {
+    const result = analyzeText("France Travail : votre allocation est suspendue. Agissez immédiatement https://fake-france-travail.example/connexion");
+    expect(result.verdict).toBe("stop");
+  });
+
+  it("forces a strong verdict for an impersonated PayPal domain", () => {
+    const result = analyzeText("PayPal : votre compte est limité. Vérifiez votre carte bancaire maintenant https://fake-paypal.example/login");
+    expect(result.verdict).toBe("stop");
+  });
+
+  it("keeps a direct IP alone at prudence", () => {
+    const result = analyzeText("Connectez-vous sur https://192.0.2.10/login");
+    expect(result.verdict).toBe("caution");
+  });
+
   it("exposes actionable recommendations for a high-risk phishing case", () => {
     const result = analyzeText("Votre compte bancaire sera bloqué. Confirmez votre mot de passe et votre carte immédiatement https://fake.example/login");
     expect(result.verdict).toBe("stop");

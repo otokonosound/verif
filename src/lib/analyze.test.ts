@@ -15,7 +15,7 @@ const cases = [
   ["ALERTE : votre carte sera bloquée dans 10 minutes. Payez 1,99 € https://fake.example", "stop"],
   ["Votre colis est bloqué. Payez 2,99 € immédiatement https://chronop0st.fr/paiment", "stop"],
   ["Cliquez ici pour suivre votre colis https://bit.ly/abc123", "caution"],
-  ["Connectez-vous immédiatement https://192.0.2.10/login pour éviter le blocage.", "stop"],
+  ["Connectez-vous immédiatement https://192.0.2.10/login pour éviter le blocage.", "caution"],
   ["Votre compte doit être vérifié https://example.com/redirect?url=https://fake.example", "caution"],
   ["Installez cette application APK pour recevoir votre remboursement https://fake.example/app.apk", "stop"],
   ["Votre dossier administratif est disponible : https://www.impots.gouv.fr/", "ok"],

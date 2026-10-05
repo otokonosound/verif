@@ -66,7 +66,8 @@ const REGISTRY:RegistryEntry[]=[
 
 const SHORTENERS=/^(?:www\.)?(?:bit\.ly|tinyurl\.com|t\.co|cutt\.ly|shorturl\.at|ow\.ly|is\.gd|goo\.gl|rb\.gy|rebrand\.ly)$/i;
 const MULTI_LABEL_SUFFIXES=new Set(["co.uk","com.au","co.nz","co.jp","gouv.fr"]);
-const FREE_MAIL=/^(?:gmail\.com|outlook\.com|hotmail\.com|live\.com|yahoo\.fr|yahoo\.com|orange\.fr|sfr\.fr|free\.fr)$/i;\nconst SAFE_DOMAINS=new Set(["example.com","example.org","example.net"]);
+const FREE_MAIL=/^(?:gmail\.com|outlook\.com|hotmail\.com|live\.com|yahoo\.fr|yahoo\.com|orange\.fr|sfr\.fr|free\.fr)$/i;
+const SAFE_DOMAINS=new Set(["example.com","example.org","example.net"]);
 const EXEC_EXT=/\.(?:exe|msi|scr|bat|cmd|com|ps1|vbs|vbe|js|jse|hta|jar|apk|dmg|pkg)(?:$|[?#])/i;
 
 function rootDomain(host:string){

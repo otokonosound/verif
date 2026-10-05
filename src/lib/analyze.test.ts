@@ -38,8 +38,7 @@ describe("VÉRIF local analyzer — red team", () => {
   });
 
   it("detects sender/domain mismatch", () => {
-    const r = analyzeText("From: service@chronopost-secure.fr
-Votre colis est bloqué. https://chronopost-secure.fr/payer");
+    const r = analyzeText("From: service@chronopost-secure.fr\nVotre colis est bloqué. https://chronopost-secure.fr/payer");
     expect(r.identity?.status).toBe("mismatch");
     expect(r.verdict).not.toBe("ok");
   });

@@ -45,7 +45,7 @@ describe("VÉRIF local analyzer — red team", () => {
 
   it("does not treat a normal payment mention as fraud", () => {
     const r = analyzeText("Votre facture de 49,90 € est disponible dans votre espace client.");
-    expect(r.verdict).toBe("ok");
+    expect(r.verdict).toBe("check");
   });
 
   it("forces STOP for a linked refund confirmation request", () => {

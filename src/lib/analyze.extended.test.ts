@@ -23,7 +23,7 @@ const matrix = [
   ["APK", "Installez cette application APK pour recevoir votre remboursement https://fake.example/app.apk", "stop"],
   ["Lien raccourci simple", "Cliquez ici pour suivre votre colis https://bit.ly/abc123", "caution"],
   ["Domaine ressemblant", "Votre colis est bloqué. Payez 2,99 € immédiatement https://chronop0st.fr/paiement", "stop"],
-  ["Domaine non officiel", "Votre compte Ameli est suspendu https://fake-ameli.example/login", "caution"],
+  ["Domaine non officiel", "Votre compte Ameli est suspendu https://fake-ameli.example/login", "stop"],
   ["Messagerie grand public", "De : Ameli <ameli-securite@gmail.com> Votre compte est suspendu. Confirmez votre mot de passe https://fake.example/login", "stop"],
   ["Reply-To différent", "From: CAF <contact@caf.fr>\nReply-To: fraude@gmail.com\nInformation CAF", "check"],
   ["Return-Path différent", "From: CAF <contact@caf.fr>\nReturn-Path: <fraude@fake.example>\nInformation CAF", "check"],

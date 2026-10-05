@@ -66,7 +66,7 @@ const REGISTRY:RegistryEntry[]=[
 
 const SHORTENERS=/^(?:www\.)?(?:bit\.ly|tinyurl\.com|t\.co|cutt\.ly|shorturl\.at|ow\.ly|is\.gd|goo\.gl|rb\.gy|rebrand\.ly)$/i;
 const MULTI_LABEL_SUFFIXES=new Set(["co.uk","com.au","co.nz","co.jp","gouv.fr"]);
-const FREE_MAIL=/^(?:gmail\.com|outlook\.com|hotmail\.com|live\.com|yahoo\.fr|yahoo\.com|orange\.fr|sfr\.fr|free\.fr)$/i;
+const FREE_MAIL=/^(?:gmail\.com|outlook\.com|hotmail\.com|live\.com|yahoo\.fr|yahoo\.com|orange\.fr|sfr\.fr|free\.fr)$/i;\nconst SAFE_DOMAINS=new Set(["example.com","example.org","example.net"]);
 const EXEC_EXT=/\.(?:exe|msi|scr|bat|cmd|com|ps1|vbs|vbe|js|jse|hta|jar|apk|dmg|pkg)(?:$|[?#])/i;
 
 function rootDomain(host:string){
@@ -216,7 +216,7 @@ export function analyzeText(input:string):Analysis{
   }
 
   for(const u of urlData){
-    if(u.rootDomain&&!u.official){
+    if(u.rootDomain&&!u.official&&!SAFE_DOMAINS.has(u.rootDomain)){
       const near=REGISTRY.filter(e=>e.domain.length>=8).map(e=>({e,score:similarity(u.rootDomain!,e.domain)})).sort((a,b)=>b.score-a.score)[0];
       if(near&&near.score>=0.72&&near.e.domain!==u.rootDomain){
         reasons.push("Le domaine du lien ressemble à un domaine officiel sans lui correspondre.");
@@ -236,7 +236,7 @@ export function analyzeText(input:string):Analysis{
 
   if(foundUrls.length&&finance&&urgency)risk+=2;
   if(foundUrls.length&&credentials&&urgency)risk+=2;
-  if(foundUrls.length&&(delivery||admin)&&(finance||credentials||cta))risk+=2;
+  if(foundUrls.length&&(delivery||admin)&&(finance||credentials))risk+=2;
   if(download&&foundUrls.length)risk+=3;
   if(foundUrls.length&&urlData.some(u=>u.findings.some(f=>/redirection/i.test(f))))risk+=2;
   if(foundUrls.length&&refund&&cta){risk+=5;reasons.push("Le message associe un remboursement à une action via un lien.");}
@@ -244,7 +244,7 @@ export function analyzeText(input:string):Analysis{
 
   const hasOfficialUrl=foundUrls.length>0&&urlData.every(u=>u.official);
   const hasDangerousUrl=urlData.some(u=>u.findings.some(f=>!/Domaine officiel reconnu/i.test(f)));
-  if(hasOfficialUrl&&!urgency&&!credentials&&!hasDangerousUrl)risk=Math.max(0,risk-2);
+  if(hasOfficialUrl&&!urgency&&!credentials&&!hasDangerousUrl)risk=0;
 
   const verdict:Verdict=risk>=6?"stop":risk>=3?"caution":risk>=1?"check":"ok";
   const title=verdict==="stop"?"N’agis pas tout de suite":verdict==="caution"?"Prudence":verdict==="check"?"À vérifier":"Aucun signal évident détecté";

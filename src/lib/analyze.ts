@@ -189,7 +189,7 @@ export function analyzeText(input:string):Analysis{
 
   for(const f of urlData.flatMap(u=>u.findings)){
     reasons.push(f);
-    risk+=/adresse IP|représentation internationale|informations avant|port réseau|caractères invisibles|exécutable|nombre inhabituellement|URL valide/i.test(f)?3:/Lien raccourci|redirection/i.test(f)?2:2;
+    risk+=/représentation internationale|informations avant|port réseau|caractères invisibles|exécutable|nombre inhabituellement|URL valide/i.test(f)?3:/adresse IP/i.test(f)?2:/Lien raccourci|redirection/i.test(f)?2:2;
   }
 
   const identity={claimedBrand:claimed?.name||null,officialDomain:claimed?.domain||null,sender:sender?.email||null,senderDomain:sender?.rootDomain||null,status:"unknown"};
@@ -213,7 +213,7 @@ export function analyzeText(input:string):Analysis{
 
   if(claimed&&foundUrls.length&&!urlData.some(u=>u.rootDomain===claimed.domain)){
     reasons.push("Le message cite un organisme mais aucun lien ne correspond à son domaine officiel.");
-    risk+=3;
+    risk+=4;
   }
 
   for(const u of urlData){

@@ -30,7 +30,8 @@ export function analyzeMessage(text){
  if(!claimed&&sender)identity={...identity,status:OFFICIAL[sender.rootDomain]?"official":"unknown"};
  if(claimed&&urls.length&&!urls.some(u=>u.rootDomain===claimed[1])){reasons.push(`Le message cite « ${claimed[0]} » mais aucun lien ne correspond au domaine officiel ${claimed[1]}.`);risk+=3}
  for(const u of urls){if(u.rootDomain&&!OFFICIAL[u.rootDomain]){const near=Object.keys(OFFICIAL).filter(d=>d.length>=8).map(d=>({d,score:similarity(u.rootDomain,d)})).sort((a,b)=>b.score-a.score)[0];if(near&&near.score>=0.72){reasons.push(`Le domaine « ${u.rootDomain} » ressemble à « ${near.d} » sans être le domaine officiel.`);risk+=3}}}
- if(headers.replyTo&&sender?.email&&headers.replyTo.toLowerCase()!==sender.email.toLowerCase()){reasons.push("Le champ Reply-To diffère de l’expéditeur détecté.");risk+=2}\nif(sender?.domain&&detectHomoglyphs(sender.domain)){reasons.push("Le domaine de l’expéditeur contient des caractères Unicode potentiellement trompeurs.");risk+=3}
+ if(headers.replyTo&&sender?.email&&headers.replyTo.toLowerCase()!==sender.email.toLowerCase()){reasons.push("Le champ Reply-To diffère de l’expéditeur détecté.");risk+=2}
+if(sender?.domain&&detectHomoglyphs(sender.domain)){reasons.push("Le domaine de l’expéditeur contient des caractères Unicode potentiellement trompeurs.");risk+=3}
 for(const u of urls)for(const f of u.findings){reasons.push(f);risk+=2}
  const intent=inferIntent(text);
  let verdict="ok",title="Aucun signal préoccupant détecté",confidence="faible";

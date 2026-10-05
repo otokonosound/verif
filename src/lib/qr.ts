@@ -12,3 +12,5 @@ export async function decodeQrFromImage(file: File): Promise<string | null> {
   const result = jsQR(image.data, image.width, image.height, { inversionAttempts: "attemptBoth" });
   return result?.data || null;
 }
+
+export function decodeQrFromImageData(data: ImageData): string | null { const result = jsQR(data.data, data.width, data.height, { inversionAttempts: "attemptBoth" }); return result?.data || null; }

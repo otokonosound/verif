@@ -64,7 +64,7 @@ export function analyzeText(input:string):Analysis {
     title:"Aucun signal préoccupant détecté",
     summary:"Rien dans le texte fourni ne déclenche nos contrôles de base.",
     reasons:["Aucun signal de risque évident n'a été détecté."],
-    actions:["Tu peux continuer, tout en gardant tes précautions habituelles."],
+    actions:["Si le message est inattendu, vérifie quand même l’organisme depuis son site ou son application officielle.","Ne communique jamais un code ou un mot de passe simplement parce qu’un message le demande."],
     confidence:"faible"
   };
 }

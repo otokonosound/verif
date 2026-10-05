@@ -1,9 +1,9 @@
 {
-  "id": "/",
+  "id": "/verif/",
   "name": "VÉRIF — Vérifie avant d'agir",
   "short_name": "VÉRIF",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/verif/",
+  "scope": "/verif/",
   "display": "standalone",
   "display_override": ["window-controls-overlay","standalone"],
   "background_color": "#f4f7f5",
@@ -12,7 +12,7 @@
   "description": "VÉRIF aide à comprendre si un SMS, e-mail, lien ou contenu reçu présente des signaux de fraude.",
   "categories": ["security","utilities"],
   "icons": [
-    {"src": "/icon.svg","sizes": "any","type": "image/svg+xml","purpose": "any maskable"}
+    {"src": "/verif/icon.svg","sizes": "any","type": "image/svg+xml","purpose": "any maskable"}
   ],
-  "share_target": {"action": "/","method": "GET","params": {"title": "title","text": "text","url": "url"}}
+  "share_target": {"action": "/verif/","method": "GET","params": {"title": "title","text": "text","url": "url"}}
 }

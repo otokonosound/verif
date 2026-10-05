@@ -49,7 +49,7 @@ describe("VÉRIF local analyzer — red team", () => {
     expect(r.verdict).not.toBe("stop");
   });
 
-  it("recognizes official domains", () => {
+  it("forces STOP for a linked refund confirmation request", () => {\n    const r = analyzeText("Votre remboursement de 347 € est disponible. Cliquez ici pour confirmer vos coordonnées https://fake.example/remboursement");\n    expect(r.verdict).toBe("stop");\n    expect(r.evidence?.risk).toBeGreaterThanOrEqual(6);\n  });\n\n  it("recognizes official domains", () => {
     const r = analyzeText("Retrouvez votre démarche sur https://www.service-public.fr/");
     expect(r.urls?.[0]?.official).toBe("Service-Public.fr");
     expect(r.verdict).toBe("ok");

@@ -64,7 +64,7 @@ export function analyzeText(input:string):Analysis {
   if(/urgent|immédiat|dans\s+\d+\s*(?:min|h|heure|jour)|dernière chance|dernier avertissement/i.test(text)) reasons.push("Le message pousse à agir rapidement.");
   if(/mot de passe|code|connexion|identifiant|code de sécurité|double authentification/i.test(text)) reasons.push("Le message évoque des informations sensibles ou un accès au compte.");
   if(/cliquez|connectez-vous|ouvrez le lien|confirmez/i.test(text)) reasons.push("Le message incite à effectuer une action via le contenu reçu.");
-  const suspiciousUrl=urlData.some(u=>u.findings.some(f=>/raccourci|inhabituel|non reconnu/i.test(f)));
+  const suspiciousUrl=urlData.some(u=>u.findings.some(f=>/raccourci|inhabituel/i.test(f)));
   const officialUrl=urlData.some(u=>!!u.official);
   let score=reasons.length;
   if(suspiciousUrl) score+=2;

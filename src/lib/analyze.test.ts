@@ -54,6 +54,13 @@ describe("VÉRIF local analyzer — red team", () => {
     expect(r.evidence?.risk).toBeGreaterThanOrEqual(6);
   });
 
+  it("debug official domain", () => {
+    const r = analyzeText("Retrouvez votre démarche sur https://www.service-public.fr/");
+    console.log("DEBUG_OFFICIAL", JSON.stringify({risk:r.evidence?.risk,urls:r.urls,identity:r.identity,reasons:r.reasons,verdict:r.verdict}));
+    expect(r.urls?.[0]?.official).toBe("Service-Public.fr");
+    expect(r.verdict).toBe("ok");
+  });
+
   it("recognizes official domains", () => {
     const r = analyzeText("Retrouvez votre démarche sur https://www.service-public.fr/");
     expect(r.urls?.[0]?.official).toBe("Service-Public.fr");

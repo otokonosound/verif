@@ -5,7 +5,8 @@ import "./styles.css";
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.addEventListener("controllerchange", () => { if (!sessionStorage.getItem("verif-sw-reloaded")) { sessionStorage.setItem("verif-sw-reloaded", "1"); window.location.reload(); } });\n    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js?v=4`, { updateViaCache: "none" }).catch(() => {});
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (!sessionStorage.getItem("verif-sw-reloaded")) { sessionStorage.setItem("verif-sw-reloaded", "1"); window.location.reload(); } });
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js?v=4`, { updateViaCache: "none" }).catch(() => {});
   });
 }
 

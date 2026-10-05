@@ -24,3 +24,6 @@ test("flags public mailbox impersonation",()=>{const r=analyzeMessage("De : CAF 
 
 test("detects Reply-To mismatch",()=>{const r=analyzeMessage("From: CAF <contact@caf.fr>\nReply-To: fraude@gmail.com\nInformation CAF");assert.ok(r.reasons.some(x=>x.includes("Reply-To")));assert.equal(r.evidence.headers.receivedCount,0)});
 test("captures technical URL findings",()=>{const r=analyzeMessage("https://example.com:8443/a/b/c/d/e");assert.ok(r.evidence.urlFindings.some(x=>x.includes("port réseau inhabituel")));assert.ok(r.evidence.urlFindings.some(x=>x.includes("sous-domaines"))===false)});
+
+
+test("uses extensible official entity registry",()=>{const r=analyzeMessage("France Travail : consultez https://francetravail.fr/");assert.equal(r.urls[0].official,"France Travail");assert.equal(r.identity.claimedBrand,"France Travail")});

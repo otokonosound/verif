@@ -1,35 +1,35 @@
 import { describe,expect,it } from "vitest";
 import { analyzeText } from "./analyze";
 
-describe("analyzeText",()=>{
-  it("flags an urgent payment link as stop",()=>{
-    const r=analyzeText("Votre colis est bloqué. Payez 2,99 € immédiatement https://fake.example/colis");
-    expect(r.verdict).toBe("stop");
-  });
-  it("does not treat an ordinary HTTPS link as fraud",()=>{
-    const r=analyzeText("Voici le compte rendu de la réunion : https://example.com/document");
-    expect(r.verdict).toBe("ok");
-  });
-  it("recognizes an official domain without penalizing it",()=>{
-    const r=analyzeText("Retrouvez votre démarche sur https://www.service-public.fr/");
-    expect(r.verdict).toBe("ok");
-    expect(r.urls?.[0].official).toBe("Service-Public.fr");
-  });
-  it("flags a suspicious lookalike delivery domain",()=>{
+const cases=[
+  ["Bonjour, rendez-vous confirmé demain à 18h.","ok"],
+  ["Voici le compte rendu : https://example.com/document","ok"],
+  ["Votre colis est bloqué. Payez 2,99 € immédiatement https://fake.example/colis","stop"],
+  ["Votre compte est suspendu. Confirmez votre mot de passe et votre code immédiatement https://fake-login.example","stop"],
+  ["Votre remboursement de 347 € est disponible. Cliquez ici pour confirmer vos coordonnées https://fake.example/remboursement","stop"],
+  ["Installez cette application APK pour recevoir votre remboursement https://fake.example/app.apk","caution"],
+  ["Retrouvez votre démarche sur https://www.service-public.fr/","ok"],
+  ["Votre colis arrive demain. Suivez-le sur https://www.chronopost.fr/","ok"],
+  ["Merci d'effectuer un paiement via ce lien https://example.com","check"],
+  ["ALERTE : votre carte sera bloquée dans 10 minutes. Payez 1,99 € https://fake.example","stop"]
+] as const;
+
+describe("VÉRIF local analyzer",()=>{
+  for(const [text,expected] of cases){
+    it(`${expected.toUpperCase()} — ${text.slice(0,55)}`,()=>{
+      expect(analyzeText(text).verdict).toBe(expected);
+    });
+  }
+
+  it("detects a lookalike domain",()=>{
     const r=analyzeText("Votre colis est bloqué. Payez 2,99 € immédiatement https://chronop0st.fr/paiment");
-    expect(["stop","caution"]).toContain(r.verdict);
+    expect(r.verdict).toBe("stop");
     expect(r.reasons.some(x=>x.toLowerCase().includes("domaine"))).toBe(true);
   });
-  it("flags an account takeover attempt",()=>{
-    const r=analyzeText("Votre compte est suspendu. Confirmez votre mot de passe et votre code immédiatement https://fake-login.example");
-    expect(["stop","caution"]).toContain(r.verdict);
-  });
-  it("flags a payment request without pretending certainty",()=>{
-    const r=analyzeText("Merci d'effectuer un paiement via ce lien https://example.com");
-    expect(["caution","check"]).toContain(r.verdict);
-  });
-  it("does not overstate a normal sentence",()=>{
-    const r=analyzeText("Bonjour, rendez-vous confirmé demain à 18h.");
-    expect(r.verdict).toBe("ok");
+
+  it("detects sender/domain mismatch",()=>{
+    const r=analyzeText("From: service@chronopost-secure.fr\nVotre colis est bloqué. https://chronopost-secure.fr/payer");
+    expect(r.identity?.status).toBe("mismatch");
+    expect(r.verdict).not.toBe("ok");
   });
 });

@@ -81,6 +81,8 @@ Le moteur actuel est un prototype : il ne constitue pas un service de cybersécu
 ## Suite
 
 - OCR réel pour captures/photos ;
+- décodage QR local avant OCR ;
+- détection des URL raccourcies et paramètres de redirection ;
 - vérification serveur des URL/redirections ;
 - registre officiel versionné et maintenable ;
 - réputation de domaine avec sources externes ;

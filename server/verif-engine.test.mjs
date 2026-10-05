@@ -27,3 +27,10 @@ test("captures technical URL findings",()=>{const r=analyzeMessage("https://exam
 
 
 test("uses extensible official entity registry",()=>{const r=analyzeMessage("France Travail : consultez https://francetravail.fr/");assert.equal(r.urls[0].official,"France Travail");assert.equal(r.identity.claimedBrand,"France Travail")});
+
+test("builds banking fraud scenario recommendations",()=>{const r=analyzeMessage("Votre banque vous demande de confirmer votre carte bancaire et votre code sur https://fake.example/login");assert.equal(r.recommendation.scenario,"banking_fraud");assert.equal(r.recommendation.urgency,"now");assert.ok(r.recommendation.steps.some(x=>x.includes("banque")))});
+test("builds delivery scenario recommendations",()=>{const r=analyzeMessage("Votre colis Chronopost est bloqué. Payez 2,99 € sur https://fake.example/colis");assert.equal(r.recommendation.scenario,"delivery_phishing");assert.equal(r.recommendation.urgency,"today")});
+test("builds administrative scenario recommendations",()=>{const r=analyzeMessage("Votre amende doit être réglée immédiatement https://fake.example/amende");assert.equal(r.recommendation.scenario,"administrative_phishing")});
+test("builds account takeover scenario recommendations",()=>{const r=analyzeMessage("Votre compte est suspendu. Confirmez votre mot de passe et code de sécurité sur https://fake.example/login");assert.equal(r.recommendation.scenario,"account_takeover");assert.equal(r.recommendation.urgency,"now")});
+test("builds refund scenario recommendations",()=>{const r=analyzeMessage("Votre remboursement est disponible. Saisissez vos coordonnées bancaires et payez des frais sur https://fake.example/refund");assert.equal(r.recommendation.scenario,"refund_scam")});
+test("builds malware scenario recommendations",()=>{const r=analyzeMessage("Installez cette application APK pour recevoir votre colis: https://fake.example/app.apk");assert.equal(r.recommendation.scenario,"malware_download");assert.equal(r.recommendation.urgency,"now")});

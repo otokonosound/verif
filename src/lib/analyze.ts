@@ -27,7 +27,7 @@ const OFFICIAL:Record<string,string> = {
 function rootDomain(host:string){const h=host.toLowerCase().replace(/^www\./,"");const p=h.split(".");return p.length>2?p.slice(-2).join("."):h}
 function urlsIn(text:string){return [...text.matchAll(/https?:\/\/[^\s<>"']+/gi)].map(m=>m[0].replace(/[),.;!?]+$/,""))}
 function domainOf(u:string){try{return new URL(u).hostname.toLowerCase()}catch{return null}}
-function officialFor(host:string){if(!host)return null;const root=rootDomain(host);return OFFICIAL[root]||Object.keys(OFFICIAL).find(d=>host===d||host.endsWith("."+d))||null}
+function officialFor(host:string){if(!host)return null;const root=rootDomain(host);const key=Object.keys(OFFICIAL).find(d=>host===d||host.endsWith("."+d));return OFFICIAL[root]||key||null}
 function scenario(text:string, riskyUrl:boolean){
   if(/colis|livraison|chronopost|laposte|mondial relay|dpd|ups|dhl/i.test(text)) return "delivery_phishing";
   if(/banque|carte bancaire|virement|iban|sécurité bancaire|crédit/i.test(text)) return "banking_fraud";

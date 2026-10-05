@@ -1,7 +1,7 @@
 import { URL } from "node:url";
 
 import { OFFICIAL_ENTITIES } from "./official-registry.mjs";
-import { buildRecommendation } from "./recommendations.mjs";
+import { buildRecommendation, buildIncidentReport } from "./recommendations.mjs";
 
 const OFFICIAL = Object.fromEntries(Object.entries(OFFICIAL_ENTITIES).map(([domain, meta]) => [domain, meta.name]));const BRAND_HINTS=Object.entries(OFFICIAL_ENTITIES).flatMap(([domain, meta])=>meta.aliases.map(alias=>[alias,domain]));
 const PUBLIC_SUFFIXES=new Set(["co.uk","org.uk","ac.uk","com.au","co.jp"]);
@@ -37,7 +37,7 @@ export function analyzeMessage(text){
  const evidence={urls:urls.map(u=>u.url),sender:sender?.email||null,senderDomain:sender?.rootDomain||null,officialDomain:claimed?.[1]||null,intent,risk,headers:{from:headers.from,replyTo:headers.replyTo,returnPath:headers.returnPath,receivedCount:headers.received.length},urlFindings:urls.flatMap(u=>u.findings)};
  const partial={verdict,title,summary,confidence,reasons,actions,urls,identity,intent,evidence};
  const recommendation=buildRecommendation(text,partial);
- return{...partial,recommendation,checkedAt:new Date().toISOString(),engine:"rules-v0.5"};
+ const checkedAt=new Date().toISOString();\n return{...partial,recommendation,incidentReport:buildIncidentReport(text,{...partial,recommendation,checkedAt}),checkedAt,engine:"rules-v0.6"};
 }
 
 import { getAiSecondOpinion, mergeAiOpinion } from "./ai.mjs";

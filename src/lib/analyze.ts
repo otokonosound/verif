@@ -240,7 +240,7 @@ export function analyzeText(input:string):Analysis{
   if(download&&foundUrls.length)risk+=3;
   if(foundUrls.length&&urlData.some(u=>u.findings.some(f=>/redirection/i.test(f))))risk+=2;
   if(foundUrls.length&&refund&&cta){risk+=5;reasons.push("Le message associe un remboursement à une action via un lien.");}
-  if(foundUrls.some(u=>u.findings.some(f=>/exécutable/i.test(f)))&&download)risk+=2;
+  if(urlData.some(u=>u.findings.some(f=>/exécutable/i.test(f)))&&download)risk+=2;
 
   const hasOfficialUrl=foundUrls.length>0&&urlData.every(u=>u.official);
   const hasDangerousUrl=urlData.some(u=>u.findings.some(f=>!/Domaine officiel reconnu/i.test(f)));

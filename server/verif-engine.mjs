@@ -34,8 +34,10 @@ export function analyzeMessage(text){
 if(sender?.domain&&detectHomoglyphs(sender.domain)){reasons.push("Le domaine de l’expéditeur contient des caractères Unicode potentiellement trompeurs.");risk+=3}
 for(const u of urls)for(const f of u.findings){reasons.push(f);risk+=2}
  const intent=inferIntent(text);
+ if((claimed&&urls.length&&!urls.some(u=>u.rootDomain===claimed[1]))||(claimed&&urls.some(u=>u.rootDomain&&u.rootDomain!==claimed[1]&&similarity(u.rootDomain,claimed[1])>=0.72)))risk+=2;
+ if(intent==="finance"&&/urgent|immédiat|suspendu|bloqué|dernière chance/.test(lower)&&urls.length)risk+=1;
  let verdict="ok",title="Aucun signal préoccupant détecté",confidence="faible";
- if(risk>=7){verdict="stop";title="N'agis pas tout de suite";confidence="élevée"}else if(risk>=4){verdict="caution";title="Prudence";confidence="moyenne"}else if(risk>=1){verdict="check";title="À vérifier";confidence="moyenne"}
+ if(risk>=6){verdict="stop";title="N'agis pas tout de suite";confidence="élevée"}else if(risk>=3){verdict="caution";title="Prudence";confidence="moyenne"}else if(risk>=1){verdict="check";title="À vérifier";confidence="moyenne"}
  const summary=verdict==="stop"?"Plusieurs signaux compatibles avec une tentative de fraude ont été détectés.":verdict==="caution"?"Plusieurs éléments méritent une vérification indépendante.":verdict==="check"?"Un élément mérite une vérification avant d'agir.":"Aucun signal de risque évident n'a été identifié dans le contenu fourni.";
  const actions=verdict==="stop"?["N'utilise pas le lien reçu.","Ouvre toi-même le site ou l'application officielle.","Ne communique aucun code, mot de passe ou donnée bancaire."]:verdict==="caution"?["N'agis pas depuis le message.","Vérifie l'organisme par un canal indépendant."]:["Compare le contenu avec la source officielle avant d'agir."];
  const evidence={urls:urls.map(u=>u.url),sender:sender?.email||null,senderDomain:sender?.rootDomain||null,officialDomain:claimed?.[1]||null,intent,risk,headers:{from:headers.from,replyTo:headers.replyTo,returnPath:headers.returnPath,receivedCount:headers.received.length},urlFindings:urls.flatMap(u=>u.findings)};

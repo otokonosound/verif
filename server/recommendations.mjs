@@ -99,9 +99,9 @@ export function inferScenario(text, analysis = {}) {
   ) return "refund_scam";
 
   if (
-    intent === "finance" ||
-    has(lower, /carte bancaire|numéro de carte|cvv|cryptogramme|iban|rib|virement|paiement|frais|banque|conseiller bancaire/i)
-  ) return "banking_fraud";
+    intent === "delivery" ||
+    has(lower, /colis|livraison|chronopost|la poste|mondial relay|dhl|ups|dpd|frais de livraison|adresse de livraison/i)
+  ) return "delivery_phishing";
 
   if (
     intent === "credentials" ||
@@ -109,9 +109,9 @@ export function inferScenario(text, analysis = {}) {
   ) return "account_takeover";
 
   if (
-    intent === "delivery" ||
-    has(lower, /colis|livraison|chronopost|la poste|mondial relay|dhl|ups|dpd|frais de livraison|adresse de livraison/i)
-  ) return "delivery_phishing";
+    intent === "finance" ||
+    has(lower, /carte bancaire|numéro de carte|cvv|cryptogramme|iban|rib|virement|paiement|frais|banque|conseiller bancaire/i)
+  ) return "banking_fraud";
 
   if (
     intent === "administrative" ||

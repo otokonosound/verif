@@ -37,3 +37,5 @@ test("builds malware scenario recommendations",()=>{const r=analyzeMessage("Inst
 
 test("suggests SMS reporting for SMS phishing",()=>{const r=analyzeMessage("SMS reçu du 06 12 34 56 78 : votre colis est bloque, payez 2,99 EUR");assert.equal(r.recommendation.channel,"sms");assert.ok(r.recommendation.reports.some(x=>x.label.includes("33700")))});
 test("suggests email reporting for email phishing",()=>{const r=analyzeMessage("De : Ameli <support@fake-ameli.example>\nVotre remboursement est disponible");assert.equal(r.recommendation.channel,"email");assert.ok(r.recommendation.reports.some(x=>x.label.includes("Signal Spam")))});
+
+test("generates a copyable incident report",()=>{const r=analyzeMessage("De : Ameli <support@fake-ameli.example>\nVotre remboursement est disponible https://fake-ameli.example/remboursement");assert.ok(r.incidentReport.includes("VÉRIF — DOSSIER D'INCIDENT"));assert.ok(r.incidentReport.includes("fake-ameli.example"));assert.ok(r.incidentReport.includes("LIENS DÉTECTÉS"))});

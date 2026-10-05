@@ -146,7 +146,7 @@ export function analyzeText(input:string):Analysis{
   if(foundUrls.length&&(delivery||admin)&&(finance||credentials||cta))risk+=2;
   if(download&&foundUrls.length)risk+=3;
   if(foundUrls.length&&urlData.some(u=>u.findings.some(f=>/redirection/i.test(f))))risk+=2;
-  if(foundUrls.length&&refund&&cta)risk+=4;
+  if(foundUrls.length&&refund&&cta){risk+=5; reasons.push("Le message associe un remboursement à une action via un lien.");}
 
   const hasOfficialUrl=foundUrls.length>0&&urlData.every(u=>u.official);
   if(hasOfficialUrl&&!urgency&&!credentials&&!urlData.some(u=>u.findings.some(f=>!/Domaine officiel reconnu/i.test(f)))){

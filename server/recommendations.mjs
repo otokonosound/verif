@@ -1,3 +1,10 @@
+const REPORTING = {
+  sms: { label: "Signaler le SMS au 33700", url: "https://www.33700.fr/accueil/sms/" },
+  email: { label: "Signaler l'e-mail à Signal Spam", url: "https://www.signal-spam.fr/" },
+  site: { label: "Signaler le site à Phishing Initiative", url: "https://www.phishing-initiative.fr.phishing-initiative.fr/contrib/?lang=fr" },
+  authorities: { label: "Signaler aux autorités via PHAROS", url: "https://www.internet-signalement.gouv.fr/" }
+};
+
 const SCENARIOS = {
   banking_fraud: {
     label: "Fraude bancaire",
@@ -78,6 +85,14 @@ const SCENARIOS = {
   }
 };
 
+function detectChannel(text) {
+  const lower = String(text || "").toLowerCase();
+  if (/\b(?:sms|mms|texto|message reçu|33700)\b/i.test(lower) || /\b(?:06|07|\+33\s?6|\+33\s?7)[0-9 .-]{8,}/i.test(lower)) return "sms";
+  if (/\b(?:e-?mail|email|courriel|expéditeur|reply-to|from|de\s*:)/i.test(lower)) return "email";
+  if (/https?:\/\//i.test(lower)) return "site";
+  return "email";
+}
+
 function has(text, pattern) {
   return pattern.test(text);
 }
@@ -127,6 +142,12 @@ export function buildRecommendation(text, analysis = {}) {
   if (!scenario) return null;
 
   const base = SCENARIOS[scenario];
+  const channel = detectChannel(text);
+  const reports = [];
+  if (channel === "sms") reports.push(REPORTING.sms);
+  if (channel === "email") reports.push(REPORTING.email);
+  if (analysis.urls?.length) reports.push(REPORTING.site);
+  if (analysis.verdict === "stop" || scenario === "banking_fraud") reports.push(REPORTING.authorities);
   const steps = [...base.steps];
 
   if (analysis.identity?.status === "lookalike" || analysis.identity?.status === "mismatch") {
@@ -144,6 +165,8 @@ export function buildRecommendation(text, analysis = {}) {
     summary: base.summary,
     steps: [...new Set(steps)],
     preserveEvidence: true,
+    channel,
+    reports: reports.filter((item, index, all) => all.findIndex(x => x.url === item.url) === index),
     resource: base.resource
   };
 }

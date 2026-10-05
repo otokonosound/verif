@@ -1,0 +1,17 @@
+{
+  "name": "VÉRIF",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "forwardPorts": [5173, 8787],
+  "portsAttributes": {
+    "5173": {
+      "label": "VÉRIF",
+      "onAutoForward": "openBrowser"
+    },
+    "8787": {
+      "label": "VÉRIF API",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "npm install",
+  "postStartCommand": "bash -lc 'pkill -f "node server/index.mjs" 2>/dev/null || true; nohup node server/index.mjs >/tmp/verif-api.log 2>&1 & nohup npm run dev -- --host 0.0.0.0 >/tmp/verif-vite.log 2>&1 &'"
+}

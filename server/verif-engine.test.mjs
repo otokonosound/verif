@@ -20,3 +20,7 @@ test("recognizes added official registry",()=>{const r=analyzeMessage("Informati
 test("extracts sender identity and detects lookalike domain",()=>{const r=analyzeMessage("De : Assurance Ameli <support@amelii.fr>\nVotre compte est bloqué https://amelii.fr/connexion");assert.equal(r.identity.senderDomain,"amelii.fr");assert.equal(r.identity.status,"lookalike");assert.equal(r.intent,"credentials");assert.ok(r.evidence.senderDomain)});
 test("recognizes an official sender domain",()=>{const r=analyzeMessage("Expéditeur: contact@caf.fr\nInformation CAF: https://caf.fr/");assert.equal(r.identity.status,"official");assert.equal(r.identity.senderDomain,"caf.fr");});
 test("flags public mailbox impersonation",()=>{const r=analyzeMessage("De : CAF <caf-assistance@gmail.com>\nRemboursement disponible");assert.ok(r.reasons.some(x=>x.includes("messagerie grand public")));assert.ok(r.verdict!=="ok")});
+
+
+test("detects Reply-To mismatch",()=>{const r=analyzeMessage("From: CAF <contact@caf.fr>\nReply-To: fraude@gmail.com\nInformation CAF");assert.ok(r.reasons.some(x=>x.includes("Reply-To")));assert.equal(r.evidence.headers.receivedCount,0)});
+test("captures technical URL findings",()=>{const r=analyzeMessage("https://example.com:8443/a/b/c/d/e");assert.ok(r.evidence.urlFindings.some(x=>x.includes("port réseau inhabituel")));assert.ok(r.evidence.urlFindings.some(x=>x.includes("sous-domaines"))===false)});

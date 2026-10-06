@@ -3,8 +3,8 @@ import { analyzePage } from "../analyzer.js";
 
 const cases=[
   ["site normal","https://example.com/","Example","Bienvenue", "ok"],
-  ["IP directe","http://185.10.20.30/login","Connexion","", "check"],
-  ["raccourcisseur","https://bit.ly/abc","Lien","", "check"],
+  ["IP directe","https://185.10.20.30/login","Connexion","", "caution"],
+  ["raccourcisseur","https://bit.ly/abc","Lien","", "caution"],
   ["France Travail usurpé","https://france-travail-secure.example/login","France Travail","Connectez-vous immédiatement", "stop"],
   ["PayPal usurpé","https://paypal-verification.example/login","PayPal","Confirmez votre carte bancaire", "stop"],
   ["exécutable","https://example.com/facture.apk","Facture","Télécharger", "stop"],

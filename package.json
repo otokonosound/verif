@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:extension": "node --test extension/test/analyzer.test.mjs",
     "api": "node server/index.mjs",
     "test:api": "node --test server/verif-engine.test.mjs"
   },

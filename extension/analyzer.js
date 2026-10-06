@@ -66,7 +66,7 @@ export function analyzePage({url="",title="",text=""}={}) {
 
   if(official(host) && risk < 3 && !/urgent|mot de passe|code|carte bancaire|payez|paiement/i.test(all)) risk=0;
 
-  const verdict=risk>=6?"stop":risk>=3?"caution":risk>=1?"check":"ok";
+  const verdict=risk>=6?"stop":risk>=2?"caution":risk>=1?"check":"ok";
   const labels={ok:["Aucun signal évident","La page ne présente pas de signal de risque évident dans les éléments analysés."],check:["À vérifier","Un élément mérite une vérification avant d'agir."],caution:["Prudence","Plusieurs éléments méritent une vérification indépendante."],stop:["STOP","Plusieurs signaux forts sont compatibles avec une tentative de fraude."]};
   const actions=verdict==="stop"?["Ne saisis aucune donnée.","Ferme la page si tu n'en as pas besoin.","Accède au service depuis son site ou son application officielle."]:verdict==="caution"?["N'entre aucune donnée sensible.","Vérifie le domaine exact.","En cas de doute, ouvre toi-même le site officiel."]:verdict==="check"?["Vérifie le domaine et la source avant d'agir."]:["Tu peux continuer, mais garde les réflexes de prudence."];
   return {verdict,title:labels[verdict][0],summary:labels[verdict][1],reasons:[...new Set(reasons)],actions,risk,host,root,brand,official:official(host)};

@@ -15,5 +15,5 @@ async function scan(){
   $("reasons").innerHTML=(a.reasons.length?a.reasons:["Aucun signal notable."]).map(x=>"<li>"+escapeHtml(x)+"</li>").join("");
   $("open").onclick=()=>chrome.tabs.create({url:"https://otokonosound.github.io/verif/?url="+encodeURIComponent(a.host?("https://"+a.host):data.url)+"&text="+encodeURIComponent(data.title)});
 }
-function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&#39;","\"":"&#39;"}[c]||c));}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));}
 $("again").onclick=scan;scan();

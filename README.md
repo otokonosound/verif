@@ -1,8 +1,8 @@
-# Écosystème VÉRIF
+# VÉRIF 2.0 — Un doute ? Vérifie avant d’agir.
 
-VÉRIF est organisé en trois briques complémentaires.
+VÉRIF 2.0 réunit le socle PWA, les extensions V3/V4 et l’extension navigateur dans un seul produit final.
 
-## 1. VÉRIF Web / PWA
+## V1 — Web / PWA
 
 - analyse de texte, SMS et e-mails ;
 - URL et domaines ;
@@ -17,7 +17,7 @@ VÉRIF est organisé en trois briques complémentaires.
 
 Adresse publique : https://otokonosound.github.io/verif/
 
-## 2. Extension navigateur
+## V2 — Extension navigateur
 
 Dossier `extension/`.
 
@@ -30,7 +30,18 @@ Compatible Chrome et Edge avec Manifest V3 :
 
 Installation : voir `extension/README.md`.
 
-## 3. Moteur
+## V3 — Partage mobile et accès direct
+
+- réception de texte et d’URL depuis le menu Partager Android ;
+- réception de fichiers partagés via le Web Share Target ;
+- traitement local des fichiers jusqu’à 12 Mo ;
+- aucune transmission automatique vers un serveur.
+
+## V4 — Gmail et Outlook
+
+L’extension détecte Gmail Web et Outlook Web et ajoute un bouton VÉRIF pour envoyer localement le contenu visible du message vers l’application.
+
+## Moteur
 
 `src/lib/analyze.ts` contient le moteur principal de l'application web.
 `extension/analyzer.js` est un moteur autonome pour l'extension.
@@ -43,6 +54,10 @@ Installation : voir `extension/README.md`.
 - 🔴 **STOP** : plusieurs signaux forts sont compatibles avec une fraude.
 
 Un verdict n'est jamais une garantie absolue de sécurité.
+
+## Version finale
+
+La spécification complète de VÉRIF 2.0 est dans `docs/V2-FINAL.md`.
 
 ## Validation automatisée
 

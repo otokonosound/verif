@@ -1,6 +1,7 @@
 const BASE="/verif/";
-const CACHE="verif-v5";
+const CACHE="verif-v6";
 const APP_SHELL=[BASE,BASE+"index.html",BASE+"manifest.webmanifest",BASE+"icon.svg"];
+const SHARED=BASE+"__shared";
 
 self.addEventListener("install",event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting()));
@@ -14,10 +15,45 @@ self.addEventListener("activate",event=>{
   );
 });
 
+async function storeShared(request){
+  const form=await request.formData();
+  const payload={
+    title:String(form.get("title")||""),
+    text:String(form.get("text")||""),
+    url:String(form.get("url")||""),
+    file:null
+  };
+  const files=form.getAll("files").filter(v=>v instanceof File && v.size);
+  const file=files[0];
+  if(file){
+    const MAX=12*1024*1024;
+    if(file.size<=MAX){
+      const bytes=new Uint8Array(await file.arrayBuffer());
+      let binary="";
+      const CHUNK=0x8000;
+      for(let i=0;i<bytes.length;i+=CHUNK){
+        binary+=String.fromCharCode(...bytes.subarray(i,Math.min(i+CHUNK,bytes.length)));
+      }
+      payload.file={name:file.name,type:file.type,size:file.size,base64:btoa(binary)};
+    }else{
+      payload.file={name:file.name,type:file.type,size:file.size,tooLarge:true};
+    }
+  }
+  const cache=await caches.open(CACHE);
+  await cache.put(SHARED,new Response(JSON.stringify(payload),{headers:{"Content-Type":"application/json"}}));
+  return Response.redirect(BASE+"?shared=1",303);
+}
+
 self.addEventListener("fetch",event=>{
-  if(event.request.method!=="GET") return;
   const url=new URL(event.request.url);
   if(url.origin!==self.location.origin) return;
+
+  if(event.request.method==="POST" && url.pathname===BASE+"share"){
+    event.respondWith(storeShared(event.request).catch(()=>Response.redirect(BASE+"?shared=1",303)));
+    return;
+  }
+
+  if(event.request.method!=="GET") return;
 
   const isDocument=url.pathname===BASE||url.pathname===BASE+"index.html";
   const isAsset=url.pathname.startsWith(BASE+"assets/");

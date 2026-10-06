@@ -9,8 +9,8 @@
 
   function extractMail() {
     const selectors = isGmail
-      ? ["div[role="main"]", "div[role="article"]", "div.a3s"]
-      : ["div[role="main"]", "div[aria-label*="Message body"]", "div[contenteditable="true"]"];
+      ? ["div[role=\"main\"]", "div[role=\"article\"]", "div.a3s"]
+      : ["div[role=\"main\"]", "div[aria-label*=\"Message body\"]", "div[contenteditable=\"true\"]"];
     let root = null;
     for (const selector of selectors) {
       const candidate = document.querySelector(selector);

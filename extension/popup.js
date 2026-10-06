@@ -1,0 +1,19 @@
+const $=id=>document.getElementById(id);
+async function scan(){
+  $("status").hidden=false;$("result").hidden=true;
+  const tabs=await chrome.tabs.query({active:true,currentWindow:true});
+  const tab=tabs[0];
+  let data={url:tab?.url||"",title:tab?.title||"",text:""};
+  if(tab?.id){
+    try{data=await chrome.tabs.sendMessage(tab.id,{type:"VERIF_SCAN_PAGE"});}catch{}
+  }
+  const a=VERIF_ANALYZER.analyzePage(data);
+  $("status").hidden=true;$("result").hidden=false;
+  $("badge").innerHTML='<span class="badge '+a.verdict+'">'+({ok:"OK",check:"À VÉRIFIER",caution:"PRUDENCE",stop:"STOP"}[a.verdict])+"</span>";
+  $("title").textContent=a.title;$("summary").textContent=a.summary;
+  $("host").textContent=a.host?("Site : "+a.host):"Page spéciale ou adresse non analysable";
+  $("reasons").innerHTML=(a.reasons.length?a.reasons:["Aucun signal notable."]).map(x=>"<li>"+escapeHtml(x)+"</li>").join("");
+  $("open").onclick=()=>chrome.tabs.create({url:"https://otokonosound.github.io/verif/?url="+encodeURIComponent(a.host?("https://"+a.host):data.url)+"&text="+encodeURIComponent(data.title)});
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&#39;","\"":"&#39;"}[c]||c));}
+$("again").onclick=scan;scan();

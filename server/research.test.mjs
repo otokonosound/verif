@@ -37,4 +37,6 @@ assert.equal(untrusted.verdict,"ok");
 
 assert.equal(__test.trustedSearchEvidence({title:"young.example phishing",snippet:"malicious",url:"https://urlscan.io/domain/young.example"},"young.example"),true);
 assert.equal(__test.trustedSearchEvidence({title:"young.example phishing",snippet:"malicious",url:"https://random-blog.example"},"young.example"),false);
+assert.equal(__test.trustedSourceHost("www.cybermalveillance.gouv.fr"),"cybermalveillance.gouv.fr");
+assert.equal(__test.trustedSourceHost("sub.cert.ssi.gouv.fr"),"cert.ssi.gouv.fr");
 console.log("VÉRIF server research: tests passés.");

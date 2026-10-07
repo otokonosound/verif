@@ -80,8 +80,9 @@ function rootDomain(host:string){
 }
 function urlsIn(text:string){
   const direct=[...text.matchAll(/https?:\/\/[^\s<>"']+/gi)].map(m=>m[0].replace(/[),.;!?]+$/,""));
-  const www=[...text.matchAll(/(?:www\.)[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?(?:\/[^\s<>"']*)?/gi)].map(m=>"https://"+m[0].replace(/[),.;!?]+$/,""));
-  const naked=[...text.matchAll(/(?<![@\p{L}\p{N}])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d+)?(?:\/[^\s<>"']*)?/giu)]
+  const scrubbed=text.replace(/https?:\/\/[^\s<>"']+/gi," ");
+  const www=[...scrubbed.matchAll(/(?:www\.)[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?(?:\/[^\s<>"']*)?/gi)].map(m=>"https://"+m[0].replace(/[),.;!?]+$/,""));
+  const naked=[...scrubbed.matchAll(/(?<![@\p{L}\p{N}])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d+)?(?:\/[^\s<>"']*)?/giu)]
     .map(m=>m[0].replace(/[),.;!?]+$/,""))
     .filter(v=>!v.toLowerCase().startsWith("www."));
   return [...new Set([...direct,...www,...naked.map(v=>"https://"+v)].map(v=>v.replace(/&amp;/gi,"&")))];

@@ -78,6 +78,45 @@ function mailAuthEvidence(text:string){
   return {auth,reasons,delta};
 }
 
+function advancedLocalEvidence(text:string,base:Analysis){
+  const lower=text.toLowerCase();
+  const reasons:string[]=[];
+  let delta=0;
+  const add=(condition:boolean,reason:string,weight:number)=>{if(condition){reasons.push(reason);delta+=weight}};
+
+  add(/\b(?:pcs|transcash|neosurf|toneo|coupon(?:s)?\s+(?:prépayé|recharge)|gift\s*card|carte(?:s)?\s+cadeau)\b/i.test(text),
+    "Le message demande ou évoque un moyen de paiement prépayé difficile à récupérer.",4);
+  add(/\b(?:bitcoin|ethereum|usdt|crypto(?:monnaie)?|wallet|portefeuille\s+crypto|seed phrase|phrase de récupération)\b/i.test(lower)&&/envoy|transf|pai|verse|communiqu|saisi/.test(lower),
+    "Le message associe une action demandée à une cryptomonnaie ou à un portefeuille crypto.",4);
+  add(/\b(?:anydesk|teamviewer|rustdesk|quicksupport|assistance à distance|prise en main à distance)\b/i.test(lower)&&/install|télécharg|ouvre|lance|code/.test(lower),
+    "Le message demande l’installation ou l’utilisation d’un outil de prise en main à distance.",5);
+  add(/\b(?:ne dites à personne|ne prévenez personne|confidentiel|secret|discret)\b/i.test(lower)&&/pai|virement|code|banque|carte/.test(lower),
+    "Le message demande de garder secrète une action sensible.",3);
+  add(/\b(?:nouveau rib|nouvel iban|changement de rib|changement d'iban|coordonnées bancaires ont changé)\b/i.test(lower),
+    "Le message annonce un changement de coordonnées bancaires, scénario classique de fraude au virement.",4);
+  add(/\b(?:police|gendarmerie|europol|interpol|tribunal|procureur)\b/i.test(lower)&&/mandat|arrest|poursuite|amende|paiement|virement/.test(lower),
+    "Le message invoque une autorité et une menace de sanction ou de paiement.",3);
+  add(/\b(?:emploi|recrutement|mission|travail à domicile|job)\b/i.test(lower)&&/avance|frais|paiement|crypto|carte cadeau|achat de matériel/.test(lower),
+    "Le message associe une offre d’emploi à une avance de frais ou un paiement inhabituel.",3);
+  add(/\b(?:vinted|leboncoin|marketplace)\b/i.test(lower)&&/hors plateforme|whatsapp|messagerie privée|paiement externe|lien de paiement/.test(lower),
+    "Le message pousse une transaction de marketplace hors du canal officiel.",3);
+  add(/\b(?:code reçu|code sms|code de vérification|otp)\b/i.test(lower)&&/donne|communique|transmets|envoie|partage/.test(lower),
+    "Le message demande explicitement de transmettre un code à usage unique.",5);
+  add(/[\u200B-\u200D\u2060\uFEFF]/u.test(text),
+    "Le contenu contient des caractères invisibles pouvant masquer ou altérer une adresse.",3);
+
+  const auth=parseAuthenticationResults(text);
+  const authPass=[auth.spf,auth.dkim,auth.dmarc].filter(x=>x==="pass").length;
+  const allUrlsOfficial=(base.urls?.length||0)>0&&(base.urls||[]).every(u=>Boolean(u.official));
+  const sensitive=/mot de passe|code de sécurité|otp|carte bancaire|cvv|cryptogramme|virement|paiement|payer|télécharg|installer/i.test(lower);
+  if(base.identity?.status==="official"&&allUrlsOfficial&&authPass>=2&&!sensitive){
+    reasons.push("L’expéditeur, les liens et l’authentification e-mail concordent avec l’organisme attendu.");
+    delta-=2;
+  }
+
+  return{delta,reasons};
+}
+
 function ageDays(date:string|null|undefined){
   if(!date)return null;
   const t=Date.parse(date);
@@ -206,8 +245,9 @@ function researchRisk(items:WebResearchItem[], officialDomain?:string|null){
 }
 
 function merge(base:Analysis, text:string, ai:IntelligenceMeta["ai"], research:{provider?:string;items:WebResearchItem[]}|null, authInfo:ReturnType<typeof mailAuthEvidence>):IntelligentAnalysis{
-  let score=Math.max(0,base.evidence?.risk||0)+authInfo.delta;
-  const reasons=[...base.reasons,...authInfo.reasons];
+  const advanced=advancedLocalEvidence(text,base);
+  let score=Math.max(0,(base.evidence?.risk||0)+authInfo.delta+advanced.delta);
+  const reasons=[...base.reasons,...authInfo.reasons,...advanced.reasons];
   const webItems=research?.items||[];
   const rr=researchRisk(webItems,base.identity?.officialDomain);
   score=Math.max(0,score+rr.delta);
@@ -278,4 +318,4 @@ export async function analyzeIntelligently(input:string, baseInput?:Analysis):Pr
   return merge(base,input,ai,research,authInfo);
 }
 
-export const __test={parseAuthenticationResults,mailAuthEvidence,researchRisk,ageDays};
+export const __test={parseAuthenticationResults,mailAuthEvidence,advancedLocalEvidence,researchRisk,ageDays};

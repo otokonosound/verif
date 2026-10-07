@@ -14,10 +14,12 @@ async function scan(){
     }
   }
   let a=VERIF_ANALYZER.analyzePage(data);
+  let researchResult=null;
   try{
     if(data.url&&/^https?:/i.test(data.url)){
       const reply=await chrome.runtime.sendMessage({type:"VERIF_RESEARCH",payload:{urls:[data.url],text:data.text||"",claimedBrand:null,officialDomain:null}});
-      const item=reply?.ok?reply.result?.items?.[0]:null;
+      researchResult=reply?.ok?reply.result:null;
+      const item=researchResult?.items?.[0]||null;
       if(item){
         const webFindings=item.findings||[];
         let bump=0;
@@ -34,6 +36,17 @@ async function scan(){
         }
         a.reasons=[...(a.reasons||[]),...webFindings.map(x=>"Recherche web : "+x)].slice(0,12);
       }
+    }
+  }catch{}
+  try{
+    const ai=await globalThis.VERIF_LOCAL_AI?.review(data,a,researchResult);
+    if(ai?.used&&ai.verdict){
+      const rank={ok:0,check:1,caution:2,stop:3};
+      const current=rank[a.verdict]||0, proposed=rank[ai.verdict]||0;
+      if(proposed>current){
+        a={...a,verdict:ai.verdict,title:ai.verdict==="stop"?"N’agis pas tout de suite":ai.verdict==="caution"?"Prudence":ai.verdict==="check"?"À vérifier":a.title,summary:ai.summary||a.summary};
+      }
+      a.reasons=[...(a.reasons||[]),...(ai.reasons||[]).map(x=>"IA locale : "+x)].slice(0,12);
     }
   }catch{}
   $("status").hidden=true;$("result").hidden=false;

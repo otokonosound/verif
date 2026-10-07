@@ -17,7 +17,7 @@ async function scan(){
   let researchResult=null;
   try{
     if(data.url&&/^https?:/i.test(data.url)){
-      const reply=await chrome.runtime.sendMessage({type:"VERIF_RESEARCH",payload:{urls:[data.url],text:data.text||"",claimedBrand:null,officialDomain:null}});
+      const reply=await chrome.runtime.sendMessage({type:"VERIF_RESEARCH",payload:{urls:[data.url],text:data.text||"",claimedBrand:a.brand||null,officialDomain:a.official?a.root:null}});
       researchResult=reply?.ok?reply.result:null;
       const item=researchResult?.items?.[0]||null;
       if(item){
@@ -26,7 +26,8 @@ async function scan(){
         if(item.rdap?.ageDays!=null&&item.rdap.ageDays<30)bump+=3;
         else if(item.rdap?.ageDays!=null&&item.rdap.ageDays<90)bump+=1;
         if(item.finalHost&&item.host&&item.finalHost!==item.host)bump+=1;
-        if(webFindings.some(x=>/destination finale ne correspond|informations sensibles/i.test(x)))bump+=2;
+        if(webFindings.some(x=>/destination finale ne correspond/i.test(x)))bump+=3;
+        if(!a.official&&webFindings.some(x=>/informations sensibles/i.test(x)))bump+=2;
         const rank={ok:0,check:1,caution:2,stop:3};
         let r=rank[a.verdict]||0;
         if(bump>=5)r=Math.max(r,3);else if(bump>=2)r=Math.max(r,2);else if(bump>=1)r=Math.max(r,1);

@@ -22,8 +22,19 @@ assert.ok(enriched.evidence.risk>=3);
 
 const flagged=__test.applyResearchEvidence(base,{
   provider:"test",
-  items:[],
-  searchResults:[{title:"Alerte phishing young.example",snippet:"arnaque et fraude signalée",url:"https://example.test"}]
+  items:[{host:"young.example",findings:[]}],
+  searchResults:[{title:"young.example — phishing détecté",snippet:"Domaine malveillant signalé",url:"https://urlscan.io/domain/young.example"}]
 });
-assert.ok(flagged.evidence.risk>=2);
+assert.ok(flagged.evidence.risk>=3);
+
+const untrusted=__test.applyResearchEvidence(base,{
+  provider:"test",
+  items:[{host:"young.example",findings:[]}],
+  searchResults:[{title:"young.example est-il une arnaque ?",snippet:"discussion phishing sans preuve",url:"https://random-blog.example/post"}]
+});
+assert.equal(untrusted.evidence.risk,0);
+assert.equal(untrusted.verdict,"ok");
+
+assert.equal(__test.trustedSearchEvidence({title:"young.example phishing",snippet:"malicious",url:"https://urlscan.io/domain/young.example"},"young.example"),true);
+assert.equal(__test.trustedSearchEvidence({title:"young.example phishing",snippet:"malicious",url:"https://random-blog.example"},"young.example"),false);
 console.log("VÉRIF server research: tests passés.");

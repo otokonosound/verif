@@ -108,7 +108,7 @@ describe("VÉRIF v1 — matrice red-team étendue", () => {
 
   it("detects dangerous javascript/data schemes", () => {
     const result = analyzeText("Cliquez javascript:alert(1) pour vérifier votre compte");
-    expect(result.verdict).toBe("caution");
+    expect(result.verdict).toBe("stop");
   });
 
   it("detects explicit OTP sharing requests", () => {

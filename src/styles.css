@@ -112,3 +112,33 @@ textarea{
     animation:none!important;
   }
 }
+
+
+/* VÉRIF Intelligence */
+.intelligencePanel{
+  margin-top:14px;
+  background:linear-gradient(180deg,#f5fbf8 0,#fff 100%);
+  border-color:#cfe5dc;
+}
+.intelligencePanel>p{margin:7px 0}
+.intelligencePanel details{
+  margin-top:14px;
+  border-top:1px solid #dcebe5;
+  padding-top:12px;
+}
+.intelligencePanel summary{
+  cursor:pointer;
+  font-weight:850;
+  color:#155b49;
+}
+.intelItem{
+  margin-top:10px;
+  padding:12px;
+  border:1px solid #dfeae5;
+  border-radius:12px;
+  background:#fff;
+  color:#4d5d57;
+  overflow-wrap:anywhere;
+}
+.intelItem b{color:#173d34}
+.intelItem div{margin-top:5px;font-size:13px;line-height:1.45}

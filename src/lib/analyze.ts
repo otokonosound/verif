@@ -261,7 +261,7 @@ export function analyzeText(input:string):Analysis{
       const hrefHost=domainOf(href),visibleHost=domainOf(visibleUrl);
       if(hrefHost&&visibleHost&&rootDomain(hrefHost)!==rootDomain(visibleHost)){
         reasons.push("Le texte affiché d’un lien ne correspond pas à sa destination réelle.");
-        risk+=4;
+        risk+=6;
       }
     }
   }

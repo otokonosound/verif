@@ -48,4 +48,12 @@ for(const u of urls)for(const f of u.findings){reasons.push(f);risk+=2}
 }
 
 import { getAiSecondOpinion, mergeAiOpinion } from "./ai.mjs";
-export async function analyzeMessageWithAI(text){const deterministic=analyzeMessage(text);const ai=await getAiSecondOpinion(text,deterministic);return mergeAiOpinion(deterministic,ai);}
+import { researchMessage, applyResearchEvidence } from "./research.mjs";
+export async function analyzeMessageWithAI(text,{research=true}={}){
+ const deterministic=analyzeMessage(text);
+ let enriched=deterministic; let webResearch=null;
+ if(research){try{webResearch=await researchMessage(text,deterministic);enriched=applyResearchEvidence(deterministic,webResearch)}catch{webResearch=null}}
+ const ai=await getAiSecondOpinion(text,enriched,webResearch);
+ const merged=mergeAiOpinion(enriched,ai);
+ return {...merged,research:webResearch,engine:ai?`rules+web+${ai.model}`:(webResearch?"rules+web":merged.engine)};
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { __test } from "./intelligence";
+import { analyzeText } from "./analyze";
 
 describe("VÉRIF Intelligence",()=>{
   it("parses SPF DKIM DMARC",()=>{
@@ -31,5 +32,22 @@ describe("VÉRIF Intelligence",()=>{
   it("computes age in days",()=>{
     const d=new Date(Date.now()-10*86400000).toISOString();
     expect(__test.ageDays(d)).toBeGreaterThanOrEqual(9);
+  });
+  it("detects prepaid voucher payment scams",()=>{
+    const base=analyzeText("Achète 500 € de coupons Transcash et envoie-moi les codes.");
+    const r=__test.advancedLocalEvidence("Achète 500 € de coupons Transcash et envoie-moi les codes.",base);
+    expect(r.delta).toBeGreaterThanOrEqual(4);
+  });
+
+  it("detects remote-support takeover scams",()=>{
+    const text="Installe AnyDesk immédiatement et donne-moi le code affiché.";
+    const r=__test.advancedLocalEvidence(text,analyzeText(text));
+    expect(r.delta).toBeGreaterThanOrEqual(5);
+  });
+
+  it("detects bank-account change fraud",()=>{
+    const text="Nos coordonnées bancaires ont changé. Merci d'utiliser ce nouvel IBAN pour la facture.";
+    const r=__test.advancedLocalEvidence(text,analyzeText(text));
+    expect(r.delta).toBeGreaterThanOrEqual(4);
   });
 });

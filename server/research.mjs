@@ -12,9 +12,13 @@ function rootDomain(host){
   return p.length>=2?p.slice(-2).join("."):p.join(".");
 }
 function resultHost(url){try{return new URL(url).hostname.toLowerCase()}catch{return""}}
+function trustedSourceHost(host){
+  const h=String(host||"").toLowerCase().replace(/^www\./,"");
+  return [...TRUSTED_SECURITY_SOURCES].find(source=>h===source||h.endsWith("."+source))||null;
+}
 function trustedSearchEvidence(result,targetHost){
-  const source=rootDomain(resultHost(result?.url));
-  if(!TRUSTED_SECURITY_SOURCES.has(source))return false;
+  const source=trustedSourceHost(resultHost(result?.url));
+  if(!source)return false;
   const needle=String(targetHost||"").toLowerCase();
   if(!needle)return false;
   const corpus=(String(result?.title||"")+" "+String(result?.snippet||"")+" "+String(result?.url||"")).toLowerCase();
@@ -128,7 +132,7 @@ export function applyResearchEvidence(analysis,research){
   const targetHost=(research?.items||[])[0]?.host||null;
   const trustedHits=(research?.searchResults||[]).filter(x=>trustedSearchEvidence(x,targetHost));
   if(trustedHits.length){
-    const sources=[...new Set(trustedHits.map(x=>rootDomain(resultHost(x.url))).filter(Boolean))];
+    const sources=[...new Set(trustedHits.map(x=>trustedSourceHost(resultHost(x.url))).filter(Boolean))];
     reasons.push("Recherche web : une source de sécurité reconnue signale explicitement ce domaine comme suspect ou malveillant"+(sources.length?" ("+sources.join(", ")+").":"."));
     delta+=trustedHits.length>=2?4:3;
   }
@@ -149,4 +153,4 @@ export function applyResearchEvidence(analysis,research){
   };
 }
 
-export const __test={ageDays,applyResearchEvidence,trustedSearchEvidence};
+export const __test={ageDays,applyResearchEvidence,trustedSearchEvidence,trustedSourceHost};

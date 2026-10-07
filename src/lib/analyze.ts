@@ -114,21 +114,17 @@ function headersFrom(text:string){
 function claimedEntry(text:string){
   const lower=text.toLowerCase();
   const brandContext=/compte|espace client|facture|abonnement|support|sécurité|connexion|paiement|service|application|client|livraison|commande|banque|assurance/i.test(lower);
-  const scored=REGISTRY.flatMap(e=>e.aliases.map(alias=>{
-    const re=new RegExp("(?<![\\p{L}\\p{N}])"+alias.replace(/[.*+?^$()|[\]{}]/g,"\\function claimedEntry(text:string){
-  const lower=text.toLowerCase();
-  const scored=REGISTRY.map(e=>{
-    const hit=e.aliases.some(a=>new RegExp("(?<![\\p{L}\\p{N}])"+a.replace(/[.*+?^$()|[\]{}]/g,"\\$&")+"(?![\\p{L}\\p{N}])","iu").test(lower));
-    return{e,hit};
-  }).filter(x=>x.hit);
-  return scored[0]?.e||null;
-}")+"(?![\\p{L}\\p{N}])","iu");
-    const hit=re.test(lower);
-    if(!hit)return null;
-    if(AMBIGUOUS_ALIASES.has(alias.toLowerCase())&&!brandContext&&!lower.includes(alias.toLowerCase()+"."))return null;
-    const score=alias.length+(alias.includes(" ")?4:0)+(e.domain&&lower.includes(e.domain)?8:0);
-    return{e,score};
-  })).filter(Boolean) as Array<{e:RegistryEntry;score:number}>;
+  const escapeRegex=(value:string)=>value.replace(/[.*+?^$()|[\]{}]/g,"\\$&");
+  const scored: Array<{e:RegistryEntry;score:number}> = [];
+  for(const e of REGISTRY){
+    for(const alias of e.aliases){
+      const re=new RegExp("(?<![\\p{L}\\p{N}])"+escapeRegex(alias)+"(?![\\p{L}\\p{N}])","iu");
+      if(!re.test(lower))continue;
+      if(AMBIGUOUS_ALIASES.has(alias.toLowerCase())&&!brandContext&&!lower.includes(alias.toLowerCase()+"."))continue;
+      const score=alias.length+(alias.includes(" ")?4:0)+(lower.includes(e.domain)?8:0);
+      scored.push({e,score});
+    }
+  }
   scored.sort((a,b)=>b.score-a.score);
   return scored[0]?.e||null;
 }

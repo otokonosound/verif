@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:extension": "node --test extension/test/*.test.mjs",
     "api": "node server/index.mjs",
-    "test:api": "node --test server/verif-engine.test.mjs"
+    "test:api": "node --test server/*.test.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

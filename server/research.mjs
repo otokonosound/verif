@@ -1,4 +1,26 @@
 const SEARCH_TIMEOUT=Number(process.env.SEARCH_TIMEOUT_MS||5000);
+const TRUSTED_SECURITY_SOURCES=new Set([
+  "cybermalveillance.gouv.fr","cert.ssi.gouv.fr","17cyber.gouv.fr",
+  "urlscan.io","virustotal.com","phishtank.org","openphish.com",
+  "microsoft.com","google.com","cloudflare.com","malwarebytes.com",
+  "proofpoint.com","sophos.com","trendmicro.com","kaspersky.com",
+  "eset.com","bitdefender.com"
+]);
+
+function rootDomain(host){
+  const p=String(host||"").toLowerCase().replace(/^www\./,"").split(".").filter(Boolean);
+  return p.length>=2?p.slice(-2).join("."):p.join(".");
+}
+function resultHost(url){try{return new URL(url).hostname.toLowerCase()}catch{return""}}
+function trustedSearchEvidence(result,targetHost){
+  const source=rootDomain(resultHost(result?.url));
+  if(!TRUSTED_SECURITY_SOURCES.has(source))return false;
+  const needle=String(targetHost||"").toLowerCase();
+  if(!needle)return false;
+  const corpus=(String(result?.title||"")+" "+String(result?.snippet||"")+" "+String(result?.url||"")).toLowerCase();
+  if(!corpus.includes(needle))return false;
+  return /phishing|hameçonnage|malveillant|malicious|arnaque|fraud|scam|malware|dangerous|unsafe|compromis|compromised|blacklist|blocklist/.test(corpus);
+}
 
 function withTimeout(ms){
   const controller=new AbortController();
@@ -80,7 +102,7 @@ export async function researchMessage(text,analysis){
 
   const suspiciousHost=items.find(x=>!analysis.urls?.find(u=>u.host===x.host)?.official)?.host||items[0]?.host||null;
   const brand=analysis.identity?.claimedBrand||"";
-  const query=suspiciousHost?[`"${suspiciousHost}"`,brand,"phishing arnaque fraude"].filter(Boolean).join(" "):null;
+  const query=suspiciousHost?[`"${suspiciousHost}"`,brand,"sécurité"].filter(Boolean).join(" "):null;
   const search=query?await webSearch(query):null;
 
   return{
@@ -103,10 +125,12 @@ export function applyResearchEvidence(analysis,research){
     }
   }
 
-  const snippets=(research?.searchResults||[]).map(x=>(x.title+" "+x.snippet).toLowerCase()).join(" ");
-  if(/phishing|hameçonnage|arnaque|fraud|scam|malware/.test(snippets)){
-    reasons.push("Recherche web : des résultats publics associent le domaine ou l’identité recherchée à des termes de fraude/phishing.");
-    delta+=2;
+  const targetHost=(research?.items||[])[0]?.host||null;
+  const trustedHits=(research?.searchResults||[]).filter(x=>trustedSearchEvidence(x,targetHost));
+  if(trustedHits.length){
+    const sources=[...new Set(trustedHits.map(x=>rootDomain(resultHost(x.url))).filter(Boolean))];
+    reasons.push("Recherche web : une source de sécurité reconnue signale explicitement ce domaine comme suspect ou malveillant"+(sources.length?" ("+sources.join(", ")+").":"."));
+    delta+=trustedHits.length>=2?4:3;
   }
 
   if(!delta)return{...analysis,research};
@@ -125,4 +149,4 @@ export function applyResearchEvidence(analysis,research){
   };
 }
 
-export const __test={ageDays,applyResearchEvidence};
+export const __test={ageDays,applyResearchEvidence,trustedSearchEvidence};

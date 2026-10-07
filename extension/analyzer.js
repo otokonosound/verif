@@ -37,6 +37,7 @@ export function analyzePage({url="",title="",text=""}={}) {
   try { parsed=new URL(url); } catch {}
   const host=parsed?.hostname?.toLowerCase()||"";
   const root=host?rootDomain(host):"";
+  const officialName=host?official(host):null;
   const brand=Object.entries(OFFICIAL).find(([d,n])=>all.includes(n.toLowerCase()) || all.includes(d))?.[1] || null;
 
   if(parsed) {
@@ -59,16 +60,21 @@ export function analyzePage({url="",title="",text=""}={}) {
     }
   }
 
-  if(/mot de passe|identifiant|code de sécurité|code de vérification|otp|carte bancaire|cvv|cryptogramme/i.test(all)){reasons.push("La page demande ou évoque des données sensibles.");risk+=2;}
-  if(/urgent|urgence|immédiat|immédiatement|dernière chance|dernier avertissement|compte.*(bloqué|suspendu)|expir/i.test(all)){reasons.push("Le contenu exerce une pression ou une menace.");risk+=2;}
-  if(/paiement|payez|payer|virement|iban|rib|remboursement|frais de livraison/i.test(all)){reasons.push("Le contenu évoque un paiement, un remboursement ou des frais.");risk+=2;}
-  if(/cliquez|clique|confirmez|connectez-vous|régularisez|mettez à jour/i.test(all)){reasons.push("La page incite à effectuer une action.");risk+=1;}
+  const sensitive=/mot de passe|identifiant|code de sécurité|code de vérification|otp|carte bancaire|cvv|cryptogramme/i.test(all);
+  const pressure=/urgent|urgence|immédiat|immédiatement|dernière chance|dernier avertissement|compte.*(bloqué|suspendu)|expir/i.test(all);
+  const finance=/paiement|payez|payer|virement|iban|rib|remboursement|frais de livraison/i.test(all);
+  const action=/cliquez|clique|confirmez|connectez-vous|régularisez|mettez à jour/i.test(all);
 
-  if(official(host) && risk < 3 && !/urgent|mot de passe|code|carte bancaire|payez|paiement/i.test(all)) risk=0;
+  if(sensitive){reasons.push(officialName?"La page officielle contient une zone ou un texte lié à des données sensibles.":"La page demande ou évoque des données sensibles.");risk+=officialName?0:2;}
+  if(pressure){reasons.push("Le contenu exerce une pression ou une menace.");risk+=officialName?1:2;}
+  if(finance){reasons.push("Le contenu évoque un paiement, un remboursement ou des frais.");risk+=officialName?1:2;}
+  if(action){reasons.push("La page incite à effectuer une action.");risk+=officialName?0:1;}
+
+  if(officialName && risk < 2 && !pressure && !finance) risk=0;
 
   const verdict=risk>=6?"stop":risk>=2?"caution":risk>=1?"check":"ok";
   const labels={ok:["Aucun signal évident","La page ne présente pas de signal de risque évident dans les éléments analysés."],check:["À vérifier","Un élément mérite une vérification avant d'agir."],caution:["Prudence","Plusieurs éléments méritent une vérification indépendante."],stop:["STOP","Plusieurs signaux forts sont compatibles avec une tentative de fraude."]};
   const actions=verdict==="stop"?["Ne saisis aucune donnée.","Ferme la page si tu n'en as pas besoin.","Accède au service depuis son site ou son application officielle."]:verdict==="caution"?["N'entre aucune donnée sensible.","Vérifie le domaine exact.","En cas de doute, ouvre toi-même le site officiel."]:verdict==="check"?["Vérifie le domaine et la source avant d'agir."]:["Tu peux continuer, mais garde les réflexes de prudence."];
-  return {verdict,title:labels[verdict][0],summary:labels[verdict][1],reasons:[...new Set(reasons)],actions,risk,host,root,brand,official:official(host)};
+  return {verdict,title:labels[verdict][0],summary:labels[verdict][1],reasons:[...new Set(reasons)],actions,risk,host,root,brand,official:officialName};
 }
 if(typeof globalThis!=="undefined") globalThis.VERIF_ANALYZER={analyzePage};

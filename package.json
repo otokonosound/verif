@@ -1,16 +1,16 @@
 {
   "name": "verif",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:extension": "node --test extension/test/analyzer.test.mjs",
+    "test:extension": "node --test extension/test/*.test.mjs",
     "api": "node server/index.mjs",
-    "test:api": "node --test server/verif-engine.test.mjs"
+    "test:api": "node --test server/*.test.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

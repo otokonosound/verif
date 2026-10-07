@@ -1,69 +1,79 @@
-# VÉRIF 2.0 — Un doute ? Vérifie avant d’agir.
+# VÉRIF 2.1 — Intelligence
 
-VÉRIF 2.0 réunit le socle PWA, les extensions V3/V4 et l’extension navigateur dans un seul produit final.
+**Un doute ? Vérifie avant d’agir.**
 
-## V1 — Web / PWA
+VÉRIF est une PWA mobile-first et une extension Chrome/Edge qui analyse des SMS, e-mails, URL, QR codes, captures et documents avant que l’utilisateur n’agisse.
 
-- analyse de texte, SMS et e-mails ;
-- URL et domaines ;
-- captures/photos avec OCR local ;
-- QR codes ;
-- PDF, DOCX, XLSX, TXT et ZIP ;
-- détection d'exécutables ;
-- historique local ;
-- recommandations et dossier d'incident ;
-- fonctionnement local-first ;
-- installation comme PWA.
+La version 2.1 remplace le simple score heuristique par une architecture **multi-preuves** : moteur déterministe, authentification e-mail, renseignements DNS/RDAP, recherche web via l’extension, IA embarquée lorsqu’elle est disponible, et moteur serveur optionnel.
 
-Adresse publique : https://otokonosound.github.io/verif/
+Application publique : https://otokonosound.github.io/verif/
 
-## V2 — Extension navigateur
+## Architecture de décision
 
-Dossier `extension/`.
+VÉRIF n’autorise pas un modèle d’IA à décider seul.
 
-Compatible Chrome et Edge avec Manifest V3 :
-- analyse de la page active ;
-- clic droit sur un lien ;
-- clic droit sur une sélection ;
-- analyse locale ;
-- accès direct à VÉRIF pour une analyse approfondie.
-
-Installation : voir `extension/README.md`.
-
-## V3 — Partage mobile et accès direct
-
-- réception de texte et d’URL depuis le menu Partager Android ;
-- réception de fichiers partagés via le Web Share Target ;
-- traitement local des fichiers jusqu’à 12 Mo ;
-- aucune transmission automatique vers un serveur.
-
-## V4 — Gmail et Outlook
-
-L’extension détecte Gmail Web et Outlook Web et ajoute un bouton VÉRIF pour envoyer localement le contenu visible du message vers l’application.
-
-## Moteur
-
-`src/lib/analyze.ts` contient le moteur principal de l'application web.
-`extension/analyzer.js` est un moteur autonome pour l'extension.
+1. **Moteur déterministe local** : URL, domaines ressemblants, redirections, punycode, ports, exécutables, identité de l’expéditeur, Reply-To/Return-Path, urgence, paiement, OTP, RIB/IBAN, prise en main à distance, coupons prépayés, crypto, marketplaces et autres scénarios à fort signal.
+2. **Authentification e-mail** : exploitation des résultats SPF, DKIM et DMARC lorsqu’ils sont présents dans le contenu fourni.
+3. **Renseignements web** : DNS, RDAP et âge du domaine. Avec l’extension, VÉRIF peut aussi suivre la destination HTTP réelle et inspecter le texte visible sans exécuter les scripts de la page.
+4. **IA embarquée** : le Prompt API / LanguageModel du navigateur est utilisé comme second avis local quand il est disponible. Il peut renforcer un verdict mais ne peut pas annuler une preuve technique forte.
+5. **Moteur serveur optionnel** : DNS/RDAP, recherche Brave ou SearXNG si configurée, puis second avis IA optionnel. Les résultats de recherche ne renforcent le risque que lorsqu’une source de sécurité reconnue corrobore explicitement le domaine.
 
 ## Verdicts
 
-- 🟢 **OK** : aucun signal évident détecté ;
-- 🟡 **À VÉRIFIER** : un élément mérite une vérification ;
-- 🟠 **PRUDENCE** : plusieurs signaux justifient de ne pas agir depuis le contenu ;
-- 🔴 **STOP** : plusieurs signaux forts sont compatibles avec une fraude.
+- 🟢 **OK** : aucun signal préoccupant n’a été établi avec les données disponibles.
+- 🟡 **À VÉRIFIER** : une preuve faible ou incomplète nécessite une vérification indépendante.
+- 🟠 **PRUDENCE** : plusieurs éléments justifient de ne pas agir directement depuis le contenu.
+- 🔴 **STOP** : des preuves fortes ou plusieurs sources convergentes sont compatibles avec une fraude.
 
-Un verdict n'est jamais une garantie absolue de sécurité.
+**OK n’est jamais une garantie absolue de sécurité.**
 
-## Version finale
+## PWA
 
-La spécification complète de VÉRIF 2.0 est dans `docs/V2-FINAL.md`.
+- texte, SMS et e-mails ;
+- URL et domaines, y compris domaines sans protocole ;
+- OCR local des images ;
+- QR codes ;
+- PDF, DOCX, XLSX, TXT et ZIP ;
+- inspection d’exécutables sans exécution ;
+- Web Share Target Android ;
+- historique local ;
+- recommandations et dossier d’incident ;
+- mode hors ligne pour les fonctions locales.
 
-## Validation automatisée
+## Extension Chrome / Edge
 
-La CI vérifie les tests du moteur web, l'extension, le moteur serveur, le build Vite et le manifeste Manifest V3.
+Dossier `extension/`, Manifest V3.
 
-## Développement
+- analyse de la page active ;
+- clic droit sur un lien ou une sélection ;
+- intégration Gmail Web et Outlook Web ;
+- recherche DNS + RDAP ;
+- contrôle des redirections et de la destination finale ;
+- lecture limitée du HTML distant sans exécuter ses scripts ;
+- IA embarquée locale quand `LanguageModel` est disponible ;
+- pont vers la PWA VÉRIF pour enrichir une vérification.
+
+Voir `extension/README.md`.
+
+## IA embarquée et compatibilité
+
+L’IA locale est **optionnelle** et détectée à l’exécution. Sur les navigateurs/appareils qui ne proposent pas `LanguageModel`, VÉRIF continue avec le moteur déterministe et les preuves web disponibles.
+
+Sur Android, il ne faut pas supposer que le modèle intégré de Chrome est disponible : VÉRIF reste donc fonctionnel sans lui. Un serveur VÉRIF peut être configuré pour fournir un second avis IA distant si nécessaire.
+
+## Serveur optionnel
+
+Le dossier `server/` fournit une API sans framework :
+
+- `POST /api/analyze`
+- `GET /api/health`
+- `GET /api/capabilities`
+
+Variables optionnelles : `HF_TOKEN`, `HF_MODEL`, `BRAVE_SEARCH_API_KEY`, `SEARXNG_URL`, `VITE_VERIF_API_URL`. Sans moteur de recherche configuré, le serveur conserve DNS + RDAP.
+
+Aucun secret ne doit être placé dans le code client.
+
+## Tests
 
 ```bash
 npm install
@@ -73,12 +83,13 @@ npm run test:api
 npm run build
 ```
 
-## Confidentialité
+La CI contrôle également la syntaxe des scripts d’extension/recherche, Manifest V3, le Web Share Target, Gmail/Outlook et le pont VÉRIF Intelligence.
 
-L'analyse de l'extension est locale au navigateur. L'application web privilégie le traitement local. Voir `docs/PRIVACY.md`.
+## Confidentialité et sécurité
 
-## Sécurité
+- [Architecture Intelligence](docs/INTELLIGENCE.md)
+- [Confidentialité](docs/PRIVACY.md)
+- [Sécurité](docs/SECURITY.md)
+- [Spécification V2](docs/V2-FINAL.md)
 
-Voir `docs/SECURITY.md`.
-
-VÉRIF est un outil d'aide à la décision et ne remplace ni les protections natives du navigateur, ni une banque, ni une administration, ni un professionnel de la cybersécurité.
+VÉRIF est un outil d’aide à la décision. Il ne remplace pas les protections natives du navigateur, les canaux officiels d’une banque/administration ou l’analyse d’un professionnel de la cybersécurité.

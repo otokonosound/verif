@@ -69,3 +69,28 @@
   observer.observe(document.documentElement, { childList: true, subtree: true });
   injectButton();
 })();
+
+
+if (location.origin === "https://otokonosound.github.io") {
+  window.addEventListener("message", async event => {
+    if (event.source !== window) return;
+    const data = event.data;
+    if (data?.source !== "VERIF_APP" || data?.type !== "VERIF_RESEARCH_REQUEST" || !data?.requestId) return;
+    try {
+      const response = await chrome.runtime.sendMessage({type:"VERIF_RESEARCH", payload:data.payload||{}});
+      window.postMessage({
+        source:"VERIF_EXTENSION",
+        type:"VERIF_RESEARCH_RESULT",
+        requestId:data.requestId,
+        payload:response?.ok ? response.result : null
+      }, "*");
+    } catch {
+      window.postMessage({
+        source:"VERIF_EXTENSION",
+        type:"VERIF_RESEARCH_RESULT",
+        requestId:data.requestId,
+        payload:null
+      }, "*");
+    }
+  });
+}

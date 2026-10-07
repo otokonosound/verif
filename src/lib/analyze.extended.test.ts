@@ -94,4 +94,37 @@ describe("VÉRIF v1 — matrice red-team étendue", () => {
     const result = analyzeText("URGENT : cliquez https://fake.example/login");
     expect(result.engine).toBe("VÉRIF local");
   });
+
+  it("does not reset a payment request to OK just because the URL is official", () => {
+    const result = analyzeText("Merci de payer 250 € maintenant sur https://www.paypal.com/");
+    expect(result.verdict).not.toBe("ok");
+  });
+
+  it("detects a naked domain without scheme", () => {
+    const result = analyzeText("Connectez-vous immédiatement sur fake-login.example pour confirmer votre compte");
+    expect(result.urls?.length).toBeGreaterThan(0);
+    expect(result.verdict).not.toBe("ok");
+  });
+
+  it("detects dangerous javascript/data schemes", () => {
+    const result = analyzeText("Cliquez javascript:alert(1) pour vérifier votre compte");
+    expect(result.verdict).toBe("stop");
+  });
+
+  it("detects explicit OTP sharing requests", () => {
+    const result = analyzeText("Envoie-moi immédiatement le code OTP reçu par SMS.");
+    expect(result.verdict).toBe("stop");
+  });
+
+  it("detects deceptive HTML anchors", () => {
+    const result = analyzeText('<a href="https://evil.example/login">https://www.ameli.fr/</a>');
+    expect(result.verdict).toBe("stop");
+    expect(result.reasons.some(x=>x.includes("destination réelle"))).toBe(true);
+  });
+
+  it("does not treat an isolated ambiguous brand word as an organization claim", () => {
+    const result = analyzeText("J'aime la couleur orange dans ce document.");
+    expect(result.identity).toBeUndefined();
+    expect(result.verdict).toBe("ok");
+  });
 });

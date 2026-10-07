@@ -1,22 +1,45 @@
-# VÉRIF — Extension Chrome / Edge
+# VÉRIF — Extension Chrome / Edge 2.1
 
-Version 1.0.0 — Manifest V3.
+Manifest V3. L’extension complète la PWA VÉRIF avec des preuves que le navigateur peut collecter directement sur la page visitée.
 
-## Installation
-1. Télécharger l'archive de l'extension.
-2. Décompresser le dossier.
-3. Chrome/Edge → Extensions → activer **Mode développeur**.
-4. **Charger l'extension non empaquetée** → sélectionner le dossier `extension`.
-5. Épingler VÉRIF dans la barre d'outils.
+## Fonctions
 
-## Utilisation
-- Cliquer sur l'icône VÉRIF : analyse de la page active.
-- Clic droit sur un lien → **VÉRIF — Vérifier ce lien**.
-- Sélectionner du texte → **VÉRIF — Vérifier la sélection**.
+- analyse de la page active ;
+- clic droit sur un lien ;
+- clic droit sur une sélection ;
+- intégration Gmail Web et Outlook Web ;
+- recherche DNS et RDAP ;
+- âge du domaine ;
+- suivi de la destination HTTP finale et des redirections ;
+- inspection limitée du texte HTML distant sans exécuter les scripts ;
+- IA embarquée via `LanguageModel` lorsqu’elle est prise en charge par Chrome ;
+- pont vers la PWA pour enrichir une vérification avec les renseignements collectés par l’extension.
 
-L'analyse de page est locale au navigateur. L'extension ne transmet pas le contenu de la page à un serveur. Le bouton « Ouvrir VÉRIF » ouvre ensuite la PWA.
+## Installation développeur
+
+1. Récupérer le dossier `extension/`.
+2. Chrome/Edge → Extensions.
+3. Activer **Mode développeur**.
+4. **Charger l’extension non empaquetée**.
+5. Sélectionner le dossier `extension`.
+6. Épingler VÉRIF.
+
+## Vie privée
+
+L’analyse déterministe et l’IA embarquée restent locales. Les recherches DNS/RDAP et les requêtes HTTP de vérification contactent nécessairement les services ou domaines concernés.
+
+Les requêtes de page sont faites sans cookies du site cible (`credentials: omit`) et sans référent. Les scripts distants ne sont pas exécutés par le moteur de recherche VÉRIF.
+
+## IA embarquée
+
+L’extension utilise l’API `LanguageModel` uniquement si elle existe dans le navigateur. L’absence de cette API ne bloque aucune fonction déterministe ou de recherche.
+
+L’IA est un second avis : elle peut renforcer un verdict, mais elle ne peut pas annuler seule un signal technique fort.
 
 ## Limites
-Les pages internes du navigateur (chrome://, edge://, extensions, Chrome Web Store) ne permettent pas l'injection du script. Le bouton VÉRIF analyse alors uniquement l'URL disponible.
 
-Cette version ne prétend pas bloquer les sites ni remplacer les protections natives du navigateur.
+Les pages internes du navigateur (`chrome://`, `edge://`, Chrome Web Store, etc.) ne permettent pas l’injection du content script.
+
+Une recherche web peut être incomplète ou indisponible. Un domaine ancien ou résolu en DNS n’est pas une preuve de légitimité, et un domaine récent n’est pas une preuve suffisante de fraude.
+
+VÉRIF n’est pas un antivirus et ne remplace pas les protections natives du navigateur.

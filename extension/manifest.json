@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "VÉRIF — Vérifie avant d'agir",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Vérifie rapidement une page, un lien ou du texte avant d'agir.",
   "permissions": [
     "activeTab",

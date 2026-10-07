@@ -9,7 +9,8 @@ const cases=[
   ["PayPal usurpé","https://paypal-verification.example/login","PayPal","Confirmez votre carte bancaire", "stop"],
   ["exécutable","https://example.com/facture.apk","Facture","Télécharger", "stop"],
   ["punycode","https://xn--exmple-cua.com","Compte","", "caution"],
-  ["HTTPS officiel","https://ameli.fr/","Ameli","Bienvenue", "ok"]
+  ["HTTPS officiel","https://ameli.fr/","Ameli","Bienvenue", "ok"],
+  ["Connexion officielle sensible","https://ameli.fr/connexion","Ameli","Identifiant et mot de passe pour vous connecter", "ok"]
 ];
 for(const [name,url,title,text,expected] of cases){
   const a=analyzePage({url,title,text});

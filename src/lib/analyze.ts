@@ -69,6 +69,7 @@ const MULTI_LABEL_SUFFIXES=new Set(["co.uk","com.au","co.nz","co.jp","gouv.fr"])
 const FREE_MAIL=/^(?:gmail\.com|outlook\.com|hotmail\.com|live\.com|yahoo\.fr|yahoo\.com|orange\.fr|sfr\.fr|free\.fr)$/i;
 const SAFE_DOMAINS=new Set(["example.com","example.org","example.net"]);
 const EXEC_EXT=/\.(?:exe|msi|scr|bat|cmd|com|ps1|vbs|vbe|js|jse|hta|jar|apk|dmg|pkg)(?:$|[?#])/i;
+const AMBIGUOUS_ALIASES=new Set(["free","orange","meta","apple","google","amazon"]);
 
 function rootDomain(host:string){
   const h=host.toLowerCase().replace(/^www\./,"").replace(/\.$/,"");
@@ -79,8 +80,12 @@ function rootDomain(host:string){
 }
 function urlsIn(text:string){
   const direct=[...text.matchAll(/https?:\/\/[^\s<>"']+/gi)].map(m=>m[0].replace(/[),.;!?]+$/,""));
-  const bare=[...text.matchAll(/(?:www\.)[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?(?:\/[^\s<>"']*)?/gi)].map(m=>"https://"+m[0].replace(/[),.;!?]+$/,""));
-  return [...new Set([...direct,...bare])];
+  const scrubbed=text.replace(/https?:\/\/[^\s<>"']+/gi," ");
+  const www=[...scrubbed.matchAll(/(?:www\.)[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?(?:\/[^\s<>"']*)?/gi)].map(m=>"https://"+m[0].replace(/[),.;!?]+$/,""));
+  const naked=[...scrubbed.matchAll(/(?<![@\p{L}\p{N}])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d+)?(?:\/[^\s<>"']*)?/giu)]
+    .map(m=>m[0].replace(/[),.;!?]+$/,""))
+    .filter(v=>!v.toLowerCase().startsWith("www."));
+  return [...new Set([...direct,...www,...naked.map(v=>"https://"+v)].map(v=>v.replace(/&amp;/gi,"&")))];
 }
 function domainOf(u:string){try{return new URL(u).hostname.toLowerCase()}catch{return null}}
 function officialFor(host:string){const h=host.toLowerCase().replace(/^www\./,"");const root=rootDomain(h);return REGISTRY.find(e=>e.domain===h||e.domain===root)?.name||null}
@@ -109,10 +114,19 @@ function headersFrom(text:string){
 }
 function claimedEntry(text:string){
   const lower=text.toLowerCase();
-  const scored=REGISTRY.map(e=>{
-    const hit=e.aliases.some(a=>new RegExp("(?<![\\p{L}\\p{N}])"+a.replace(/[.*+?^$()|[\]{}]/g,"\\$&")+"(?![\\p{L}\\p{N}])","iu").test(lower));
-    return{e,hit};
-  }).filter(x=>x.hit);
+  const brandContext=/compte|espace client|facture|abonnement|support|sécurité|connexion|paiement|service|application|client|livraison|commande|banque|assurance/i.test(lower);
+  const escapeRegex=(value:string)=>value.replace(/[.*+?^$()|[\]{}]/g,"\\$&");
+  const scored: Array<{e:RegistryEntry;score:number}> = [];
+  for(const e of REGISTRY){
+    for(const alias of e.aliases){
+      const re=new RegExp("(?<![\\p{L}\\p{N}])"+escapeRegex(alias)+"(?![\\p{L}\\p{N}])","iu");
+      if(!re.test(lower))continue;
+      if(AMBIGUOUS_ALIASES.has(alias.toLowerCase())&&!brandContext&&!lower.includes(alias.toLowerCase()+"."))continue;
+      const score=alias.length+(alias.includes(" ")?4:0)+(lower.includes(e.domain)?8:0);
+      scored.push({e,score});
+    }
+  }
+  scored.sort((a,b)=>b.score-a.score);
   return scored[0]?.e||null;
 }
 function scenario(text:string){
@@ -180,9 +194,12 @@ export function analyzeText(input:string):Analysis{
   const refund=/remboursement|remboursé|rembourser|trop[- ]perçu|indemnité/i.test(lower);
   const phone=/(?:\+33|0)[1-9](?:[ .-]?\d{2}){4}/.test(text);
 
+  if(/(?:javascript\s*:|data\s*:\s*text\/html)/i.test(text)){reasons.push("Le contenu contient un schéma d’URL pouvant exécuter ou embarquer du contenu actif.");risk+=5}
+  if(/\bintent:\/\//i.test(text)){reasons.push("Le contenu contient un lien profond Android qui peut ouvrir directement une application.");risk+=2}
   if(finance){reasons.push("Le contenu évoque un paiement, des frais ou des données bancaires.");risk+=2}
   if(urgency){reasons.push("Le contenu crée une pression temporelle ou une menace de blocage.");risk+=2}
   if(credentials){reasons.push("Le contenu demande ou évoque des informations d’authentification ou de sécurité.");risk+=2}
+  if(/(?:communique|transmets|envoie|partage|donne).{0,50}(?:code|otp)|(?:code|otp).{0,50}(?:communique|transmets|envoie|partage|donne)/i.test(lower)){reasons.push("Le message demande explicitement de transmettre un code de sécurité ou à usage unique.");risk+=4}
   if(cta){reasons.push("Le contenu incite à effectuer une action depuis le message.");risk+=1}
   if(download){reasons.push("Le contenu évoque un téléchargement, une installation ou un fichier.");risk+=1}
   if(phone&&/sms|message|code|clique/i.test(lower)){reasons.push("Le contenu ressemble à une sollicitation reçue par SMS ou message.");}
@@ -234,6 +251,18 @@ export function analyzeText(input:string):Analysis{
     const rp=headers.returnPath.match(/@([a-z0-9.-]+)/i)?.[1]?.toLowerCase();
     if(rp&&rootDomain(rp)!==sender.rootDomain){reasons.push("Le Return-Path ne correspond pas au domaine de l’expéditeur.");risk+=2}
   }
+  for(const m of text.matchAll(/<a\b[^>]*href=["'](https?:\/\/[^"'<>\s]+)["'][^>]*>([\s\S]{0,300}?)<\/a>/gi)){
+    const href=m[1],visible=m[2].replace(/<[^>]+>/g," ").trim();
+    const visibleUrl=urlsIn(visible)[0];
+    if(visibleUrl){
+      const hrefHost=domainOf(href),visibleHost=domainOf(visibleUrl);
+      if(hrefHost&&visibleHost&&rootDomain(hrefHost)!==rootDomain(visibleHost)){
+        reasons.push("Le texte affiché d’un lien ne correspond pas à sa destination réelle.");
+        risk+=6;
+      }
+    }
+  }
+
 
   if(foundUrls.length&&finance&&urgency)risk+=2;
   if(foundUrls.length&&credentials&&urgency)risk+=2;
@@ -245,7 +274,7 @@ export function analyzeText(input:string):Analysis{
 
   const hasOfficialUrl=foundUrls.length>0&&urlData.every(u=>u.official);
   const hasDangerousUrl=urlData.some(u=>u.findings.some(f=>!/Domaine officiel reconnu/i.test(f)));
-  if(hasOfficialUrl&&!urgency&&!credentials&&!hasDangerousUrl)risk=0;
+  if(hasOfficialUrl&&!urgency&&!credentials&&!finance&&!cta&&!download&&!refund&&!hasDangerousUrl)risk=0;
 
   const verdict:Verdict=risk>=6?"stop":risk>=3?"caution":risk>=1?"check":"ok";
   const title=verdict==="stop"?"N’agis pas tout de suite":verdict==="caution"?"Prudence":verdict==="check"?"À vérifier":"Aucun signal évident détecté";

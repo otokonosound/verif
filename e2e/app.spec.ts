@@ -2,6 +2,12 @@ import {test,expect} from '@playwright/test';
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 const base=process.env.GITHUB_ACTIONS?'/verif/':'/';
+test('first service worker activation preserves input',async({page})=>{
+  await page.goto(base);
+  await page.locator('textarea').first().fill('Texte conservé pendant l’installation');
+  await page.evaluate(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));});
+  await expect(page.locator('textarea').first()).toHaveValue('Texte conservé pendant l’installation');
+});
 test('browser analysis preserves STOP with unavailable AI and no unsolicited network',async({page})=>{
   const errors:string[]=[];const external:string[]=[];
   page.on('pageerror',e=>errors.push(e.message));

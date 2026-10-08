@@ -1,3 +1,4 @@
+import {networkHost,registeredDomain} from "./core.mjs";
 const SEARCH_TIMEOUT=Number(process.env.SEARCH_TIMEOUT_MS||5000);
 const TRUSTED_SECURITY_SOURCES=new Set([
   "cybermalveillance.gouv.fr","cert.ssi.gouv.fr","17cyber.gouv.fr",
@@ -21,8 +22,10 @@ function trustedSearchEvidence(result,targetHost){
   if(!source)return false;
   const needle=String(targetHost||"").toLowerCase();
   if(!needle)return false;
-  const corpus=(String(result?.title||"")+" "+String(result?.snippet||"")+" "+String(result?.url||"")).toLowerCase();
-  if(!corpus.includes(needle))return false;
+  const corpus=(String(result?.title||"")+" "+String(result?.snippet||"")).toLowerCase();
+  const domains=corpus.match(/[a-z0-9-]+(?:\.[a-z0-9-]+)+/g)||[];
+  if(!domains.includes(needle))return false;
+  if(/\?|no (?:malicious|phishing|malware)|not (?:malicious|unsafe)|aucun|pas (?:malveillant|de phishing)|sans preuve|is it|est.il/.test(corpus))return false;
   return /phishing|hameçonnage|malveillant|malicious|arnaque|fraud|scam|malware|dangerous|unsafe|compromis|compromised|blacklist|blocklist/.test(corpus);
 }
 
@@ -90,19 +93,19 @@ async function webSearch(query){
 }
 
 export async function researchMessage(text,analysis){
-  const items=[];
-  for(const u of (analysis.urls||[]).slice(0,4)){
+  const unique=[...new Map((analysis.urls||[]).filter(u=>networkHost(u.host||"")).map(u=>[u.host,u])).values()].slice(0,4);
+  const items=await Promise.all(unique.map(async u=>{
     const host=u.host||u.rootDomain;
-    if(!host)continue;
-    const [dnsInfo,rdapInfo]=await Promise.all([dns(host),rdap(host)]);
+
+    const [dnsInfo,rdapInfo]=await Promise.all([dns(host),rdap(registeredDomain(host))]);
     const findings=[];
     if(dnsInfo&&!dnsInfo.resolved)findings.push("Le domaine ne résout pas vers une adresse IPv4.");
     if(rdapInfo?.ageDays!==null&&rdapInfo?.ageDays!==undefined){
       if(rdapInfo.ageDays<30)findings.push(`Domaine enregistré très récemment (${rdapInfo.ageDays} jours).`);
       else if(rdapInfo.ageDays<90)findings.push(`Domaine récent (${rdapInfo.ageDays} jours).`);
     }
-    items.push({url:u.url,host,dns:dnsInfo,rdap:rdapInfo,findings});
-  }
+    return {url:u.url,host,dns:dnsInfo,rdap:rdapInfo,findings};
+  }));
 
   const suspiciousHost=items.find(x=>!analysis.urls?.find(u=>u.host===x.host)?.official)?.host||items[0]?.host||null;
   const brand=analysis.identity?.claimedBrand||"";
@@ -111,6 +114,7 @@ export async function researchMessage(text,analysis){
 
   return{
     provider:search?.provider||"DNS + RDAP",
+    targetHost:suspiciousHost,
     items,
     searchResults:search?.results||[],
     searchedAt:new Date().toISOString()
@@ -120,21 +124,23 @@ export async function researchMessage(text,analysis){
 export function applyResearchEvidence(analysis,research){
   let delta=0;
   const reasons=[];
+  const seen=new Set();
   for(const item of research?.items||[]){
+    if(seen.has(item.host))continue;
+    seen.add(item.host);
     for(const finding of item.findings||[]){
       reasons.push("Recherche web : "+finding);
-      if(/très récemment/i.test(finding))delta+=3;
-      else if(/Domaine récent/i.test(finding))delta+=1;
-      else if(/ne résout pas/i.test(finding))delta+=1;
     }
+    const age=item.rdap?.ageDays;
+    if(typeof age==='number'&&Number.isFinite(age)&&age>=0)delta+=age<30?3:age<90?1:0;
   }
 
-  const targetHost=(research?.items||[])[0]?.host||null;
+  const targetHost=research?.targetHost||(research?.items||[])[0]?.host||null;
   const trustedHits=(research?.searchResults||[]).filter(x=>trustedSearchEvidence(x,targetHost));
   if(trustedHits.length){
     const sources=[...new Set(trustedHits.map(x=>trustedSourceHost(resultHost(x.url))).filter(Boolean))];
     reasons.push("Recherche web : une source de sécurité reconnue signale explicitement ce domaine comme suspect ou malveillant"+(sources.length?" ("+sources.join(", ")+").":"."));
-    delta+=trustedHits.length>=2?4:3;
+    delta+=sources.length>=2?4:3;
   }
 
   if(!delta)return{...analysis,research};

@@ -14,7 +14,7 @@ VÉRIF n’autorise pas un modèle d’IA à décider seul.
 
 1. **Moteur déterministe local** : URL, domaines ressemblants, redirections, punycode, ports, exécutables, identité de l’expéditeur, Reply-To/Return-Path, urgence, paiement, OTP, RIB/IBAN, prise en main à distance, coupons prépayés, crypto, marketplaces et autres scénarios à fort signal.
 2. **Authentification e-mail** : exploitation des résultats SPF, DKIM et DMARC lorsqu’ils sont présents dans le contenu fourni.
-3. **Renseignements web** : DNS, RDAP et âge du domaine. Avec l’extension, VÉRIF peut aussi suivre la destination HTTP réelle et inspecter le texte visible sans exécuter les scripts de la page.
+3. **Renseignements web** : DNS, RDAP et âge du domaine. La recherche est facultative et ne visite jamais automatiquement le lien suspect. L’extension analyse le contenu déjà visible dans l’onglet.
 4. **IA embarquée** : le Prompt API / LanguageModel du navigateur est utilisé comme second avis local quand il est disponible. Il peut renforcer un verdict mais ne peut pas annuler une preuve technique forte.
 5. **Moteur serveur optionnel** : DNS/RDAP, recherche Brave ou SearXNG si configurée, puis second avis IA optionnel. Les résultats de recherche ne renforcent le risque que lorsqu’une source de sécurité reconnue corrobore explicitement le domaine.
 
@@ -93,3 +93,7 @@ La CI contrôle également la syntaxe des scripts d’extension/recherche, Manif
 - [Spécification V2](docs/V2-FINAL.md)
 
 VÉRIF est un outil d’aide à la décision. Il ne remplace pas les protections natives du navigateur, les canaux officiels d’une banque/administration ou l’analyse d’un professionnel de la cybersécurité.
+
+## Validation de l’intégration
+
+Voir [le rapport et les limites de validation](docs/INTELLIGENCE-VALIDATION.md). Le build produit une [extension installable](https://otokonosound.github.io/verif/downloads/verif-extension.zip). La recherche web complète nécessite une API configurée ; GitHub Pages seul ne l’exécute pas.

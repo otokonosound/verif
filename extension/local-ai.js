@@ -13,10 +13,15 @@
       expectedInputs:[{type:"text",languages:["fr","en"]}],
       expectedOutputs:[{type:"text",languages:["fr"]}]
     };
+    let session;
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),8000);
+    const bounded=p=>Promise.race([p,new Promise((_,reject)=>controller.signal.addEventListener("abort",()=>reject(new Error("timeout")),{once:true}))]);
     try{
-      const availability=await LM.availability(opts);
-      if(availability==="unavailable")return{available:false,used:false};
-      const session=await LM.create({
+      const availability=await bounded(LM.availability(opts));
+      if(availability!=="available")return{available:false,used:false};
+      const pending=LM.create({
+        signal:controller.signal,
         ...opts,
         initialPrompts:[{
           role:"system",
@@ -28,12 +33,13 @@
           ].join("\n")
         }]
       });
-      const raw=await session.prompt(JSON.stringify({
+      pending.then(created=>{if(controller.signal.aborted)created.destroy?.()},()=>{});
+      session=await bounded(pending);
+      const raw=await bounded(session.prompt(JSON.stringify({
         page:{url:data.url||"",title:data.title||"",text:String(data.text||"").slice(0,9000)},
         analyse:{verdict:analysis.verdict,reasons:analysis.reasons||[]},
         recherche:research||null
-      }));
-      session.destroy?.();
+      }),{signal:controller.signal}));
       const parsed=parseJson(raw);
       if(!parsed||!["ok","check","caution","stop"].includes(parsed.verdict))return{available:true,used:false};
       return{
@@ -44,6 +50,7 @@
         reasons:Array.isArray(parsed.reasons)?parsed.reasons.filter(x=>typeof x==="string").slice(0,5):[]
       };
     }catch{return{available:true,used:false}}
+    finally{clearTimeout(timer);controller.abort();try{session?.destroy?.()}catch{}}
   }
 
   global.VERIF_LOCAL_AI={review};

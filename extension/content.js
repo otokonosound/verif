@@ -71,7 +71,8 @@
 })();
 
 
-if (location.origin === "https://otokonosound.github.io") {
+if (location.origin === "https://otokonosound.github.io" && location.pathname.startsWith("/verif/")) {
+  document.documentElement.setAttribute("data-verif-extension", "2.1");
   window.addEventListener("message", async event => {
     if (event.source !== window) return;
     const data = event.data;

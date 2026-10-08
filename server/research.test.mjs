@@ -13,7 +13,7 @@ const base={
 };
 const research={
   provider:"test",
-  items:[{host:"young.example",findings:["Domaine enregistré très récemment (3 jours)."]}],
+  items:[{host:"young.example",rdap:{ageDays:3},findings:["Domaine enregistré très récemment (3 jours)."]}],
   searchResults:[]
 };
 const enriched=__test.applyResearchEvidence(base,research);
@@ -40,3 +40,6 @@ assert.equal(__test.trustedSearchEvidence({title:"young.example phishing",snippe
 assert.equal(__test.trustedSourceHost("www.cybermalveillance.gouv.fr"),"cybermalveillance.gouv.fr");
 assert.equal(__test.trustedSourceHost("sub.cert.ssi.gouv.fr"),"cert.ssi.gouv.fr");
 console.log("VÉRIF server research: tests passés.");
+assert.equal(__test.trustedSearchEvidence({title:'notyoung.example phishing',url:'https://urlscan.io'},'young.example'),false);
+assert.equal(__test.trustedSearchEvidence({title:'young.example: no malicious activity',url:'https://urlscan.io'},'young.example'),false);
+assert.equal(__test.trustedSearchEvidence({title:'young.example est-il une arnaque ?',url:'https://urlscan.io'},'young.example'),false);

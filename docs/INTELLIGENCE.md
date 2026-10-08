@@ -12,13 +12,13 @@ Le moteur local extrait les URL, domaines, identité revendiquée, adresse expé
 
 ### 2. Authentification e-mail
 
-Si des en-têtes `Authentication-Results` sont présents, SPF, DKIM et DMARC deviennent des preuves indépendantes. Un échec augmente le risque ; plusieurs validations cohérentes peuvent légèrement réduire l’incertitude, sans effacer d’autres signaux forts.
+Si des en-têtes `Authentication-Results` sont présents, SPF, DKIM et DMARC deviennent des preuves indépendantes. Un échec est un indice déclaré ; des validations copiées ne prouvent pas l’identité et ne diminuent pas le risque.
 
 ### 3. Renseignements web
 
 DNS et RDAP permettent de vérifier qu’un domaine existe et d’estimer son ancienneté. Un domaine créé depuis quelques jours est une preuve utile mais jamais suffisante à lui seul.
 
-Avec l’extension navigateur, VÉRIF peut aussi suivre les redirections HTTP, relever la destination finale, le statut et un extrait du contenu visible de la page sans exécuter ses scripts.
+L’extension analyse la page déjà ouverte. Les recherches automatiques ne visitent plus les URL suspectes ni leurs redirections ; DNS/RDAP sont proposés sur demande.
 
 ### 4. IA embarquée
 

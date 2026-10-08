@@ -1,3 +1,5 @@
+import { registeredDomain } from './domain';
+import { activeContent } from './context';
 export type Verdict = "ok"|"check"|"caution"|"stop";
 
 export type Analysis = {
@@ -76,7 +78,7 @@ function rootDomain(host:string){
   const p=h.split(".").filter(Boolean);
   if(p.length<2)return h;
   const suffix=p.slice(-2).join(".");
-  return MULTI_LABEL_SUFFIXES.has(suffix)&&p.length>=3?p.slice(-3).join("."):suffix;
+  return MULTI_LABEL_SUFFIXES.has(suffix)&&p.length>=3?p.slice(-3).join("."):registeredDomain(h);
 }
 function urlsIn(text:string){
   const direct=[...text.matchAll(/https?:\/\/[^\s<>"']+/gi)].map(m=>m[0].replace(/[),.;!?]+$/,""));
@@ -88,7 +90,7 @@ function urlsIn(text:string){
   return [...new Set([...direct,...www,...naked.map(v=>"https://"+v)].map(v=>v.replace(/&amp;/gi,"&")))];
 }
 function domainOf(u:string){try{return new URL(u).hostname.toLowerCase()}catch{return null}}
-function officialFor(host:string){const h=host.toLowerCase().replace(/^www\./,"");const root=rootDomain(h);return REGISTRY.find(e=>e.domain===h||e.domain===root)?.name||null}
+function officialFor(host:string){const h=host.toLowerCase().replace(/\.$/,"");return REGISTRY.find(e=>e.domain===h||h.endsWith('.'+e.domain))?.name||null}
 function entryForName(name:string){const n=name.toLowerCase();return REGISTRY.find(e=>e.name.toLowerCase()===n)||null}
 function similarity(a:string,b:string){
   const s=a.toLowerCase(),t=b.toLowerCase();
@@ -154,7 +156,7 @@ function recommendation(s:string){
 }
 
 export function analyzeText(input:string):Analysis{
-  const text=input.trim(),lower=text.toLowerCase(),checkedAt=new Date().toISOString();
+  const text=input.trim(),lower=activeContent(text),checkedAt=new Date().toISOString();
   if(!text)return{verdict:"check",title:"À vérifier",summary:"Ajoute un message, un lien ou un contenu à analyser.",reasons:[],actions:["Ajoute le contenu à vérifier."],confidence:"faible",engine:"VÉRIF local",checkedAt};
 
   const reasons:string[]=[];
@@ -204,7 +206,7 @@ export function analyzeText(input:string):Analysis{
   if(download){reasons.push("Le contenu évoque un téléchargement, une installation ou un fichier.");risk+=1}
   if(phone&&/sms|message|code|clique/i.test(lower)){reasons.push("Le contenu ressemble à une sollicitation reçue par SMS ou message.");}
 
-  for(const f of urlData.flatMap(u=>u.findings)){
+  for(const f of new Set(urlData.flatMap(u=>u.findings))){
     reasons.push(f);
     risk+=/représentation internationale|informations avant|port réseau|caractères invisibles|exécutable|nombre inhabituellement|URL valide/i.test(f)?3:/adresse IP/i.test(f)?2:/Lien raccourci|redirection/i.test(f)?2:2;
   }
@@ -243,7 +245,7 @@ export function analyzeText(input:string):Analysis{
     }
   }
 
-  if(headers.replyTo&&sender?.email&&headers.replyTo.toLowerCase()!==sender.email.toLowerCase()){
+  if(headers.replyTo&&sender?.email&&(headers.replyTo.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]||headers.replyTo).toLowerCase()!==sender.email.toLowerCase()){
     reasons.push("Le champ Reply-To diffère de l’expéditeur détecté.");
     risk+=2;
   }
@@ -286,4 +288,10 @@ export function analyzeText(input:string):Analysis{
   const rec=recommendation(scenario(text));
   const incidentReport=["VÉRIF — DOSSIER D’INCIDENT","","Date d’analyse : "+checkedAt,"Verdict : "+verdict.toUpperCase(),"Scénario : "+rec.label,"Score de risque : "+risk,"","RÉSUMÉ",summary,"","SIGNAUX",...base.reasons.map(r=>"- "+r),...(sender?["","EXPÉDITEUR",sender.email]:[]),...(foundUrls.length?["","LIENS DÉTECTÉS",...foundUrls]:[])].join("\n");
   return {...base,recommendation:rec,incidentReport};
+}
+
+export function refreshIncident<T extends Analysis>(result:T):T{
+  if(result.verdict==='ok')return result;
+  const rec=result.recommendation||recommendation('generic_phishing');
+  return {...result,recommendation:rec,incidentReport:["VÉRIF — DOSSIER D’INCIDENT",`Date : ${result.checkedAt||new Date().toISOString()}`,`Verdict : ${result.verdict.toUpperCase()}`,`Score de risque : ${result.evidence?.risk??0}`,"",result.summary,"",...result.reasons.map(r=>'- '+r)].join('\n')};
 }

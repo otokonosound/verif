@@ -14,13 +14,13 @@ describe("VÉRIF Intelligence",()=>{
     expect(r.reasons.join(" ")).toMatch(/SPF/);
   });
 
-  it("slightly rewards corroborated successful authentication",()=>{
+  it("does not trust pasted successful authentication",()=>{
     const r=__test.mailAuthEvidence("Authentication-Results: mx.example; spf=pass; dkim=pass; dmarc=pass");
-    expect(r.delta).toBe(-1);
+    expect(r.delta).toBe(0);
   });
 
   it("flags very young domains from web research",()=>{
-    const r=__test.researchRisk([{url:"https://x.test",host:"x.test",findings:["Domaine enregistré très récemment (5 jours)."]}],null);
+    const r=__test.researchRisk([{url:"https://x.test",host:"x.test",rdap:{ageDays:5},findings:["Domaine enregistré très récemment (5 jours)."]}],null);
     expect(r.delta).toBeGreaterThanOrEqual(3);
   });
 

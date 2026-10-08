@@ -131,7 +131,7 @@ export async function extractPdfTextFallback(file:File): Promise<string>{
     const dict=m[0];
     const raw=bytes.slice(start,end).slice(0,source.slice(start,end).search(/[\r\n]*$/));
     try{
-      let decoded=raw;
+      let decoded:Uint8Array=raw;
       if(/ASCII85Decode/i.test(dict))decoded=ascii85Decode(decoded);
       if(/FlateDecode/i.test(dict))decoded=pako.inflate(decoded);
       streams.push([dict,decoded]);

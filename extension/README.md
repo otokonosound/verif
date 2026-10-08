@@ -10,8 +10,8 @@ Manifest V3. L’extension complète la PWA VÉRIF avec des preuves que le navig
 - intégration Gmail Web et Outlook Web ;
 - recherche DNS et RDAP ;
 - âge du domaine ;
-- suivi de la destination HTTP finale et des redirections ;
-- inspection limitée du texte HTML distant sans exécuter les scripts ;
+- analyse des destinations présentes dans la page active ;
+- aucune ouverture automatique de lien suspect ;
 - IA embarquée via `LanguageModel` lorsqu’elle est prise en charge par Chrome ;
 - pont vers la PWA pour enrichir une vérification avec les renseignements collectés par l’extension.
 
@@ -26,9 +26,9 @@ Manifest V3. L’extension complète la PWA VÉRIF avec des preuves que le navig
 
 ## Vie privée
 
-L’analyse déterministe et l’IA embarquée restent locales. Les recherches DNS/RDAP et les requêtes HTTP de vérification contactent nécessairement les services ou domaines concernés.
+L’analyse déterministe et l’IA embarquée restent locales. Les recherches DNS/RDAP sont activées volontairement et transmettent uniquement les domaines aux services concernés.
 
-Les requêtes de page sont faites sans cookies du site cible (`credentials: omit`) et sans référent. Les scripts distants ne sont pas exécutés par le moteur de recherche VÉRIF.
+Les URL suspectes ne sont pas interrogées automatiquement. Le texte déjà affiché dans l’onglet est analysé localement.
 
 ## IA embarquée
 

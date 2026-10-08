@@ -1,3 +1,4 @@
+import { analyzeLocal } from "./core.mjs";
 import { URL } from "node:url";
 
 import { OFFICIAL_ENTITIES } from "./official-registry.mjs";
@@ -50,10 +51,11 @@ for(const u of urls)for(const f of u.findings){reasons.push(f);risk+=2}
 import { getAiSecondOpinion, mergeAiOpinion } from "./ai.mjs";
 import { researchMessage, applyResearchEvidence } from "./research.mjs";
 export async function analyzeMessageWithAI(text,{research=true}={}){
- const deterministic=analyzeMessage(text);
+ const deterministic=analyzeLocal(text);
  let enriched=deterministic; let webResearch=null;
  if(research){try{webResearch=await researchMessage(text,deterministic);enriched=applyResearchEvidence(deterministic,webResearch)}catch{webResearch=null}}
  const ai=await getAiSecondOpinion(text,enriched,webResearch);
  const merged=mergeAiOpinion(enriched,ai);
- return {...merged,research:webResearch,engine:ai?`rules+web+${ai.model}`:(webResearch?"rules+web":merged.engine)};
+ const recommendation=buildRecommendation(text,merged);
+ return {...merged,recommendation,incidentReport:buildIncidentReport(text,{...merged,recommendation}),research:webResearch,engine:ai?`rules+web+${ai.model}`:(webResearch?"rules+web":merged.engine)};
 }

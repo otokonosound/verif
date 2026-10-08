@@ -1,4 +1,4 @@
-importScripts("research.js");
+importScripts("core.js","research.js");
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({id:"verif-link",title:"VÉRIF — Vérifier ce lien",contexts:["link"]});
   chrome.contextMenus.create({id:"verif-selection",title:"VÉRIF — Vérifier la sélection",contexts:["selection"]});

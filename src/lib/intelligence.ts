@@ -1,4 +1,6 @@
-import { analyzeText, type Analysis, type Verdict } from "./analyze";
+import { analyzeText, refreshIncident, type Analysis, type Verdict } from "./analyze";
+import { networkHost, registeredDomain } from './domain';
+import { activeContent } from './context';
 
 export type WebResearchItem = {
   url: string;
@@ -29,6 +31,7 @@ export type IntelligenceMeta = {
     provider?: string;
     items: WebResearchItem[];
     searchedAt?: string;
+    searchResults?: Array<{title:string;url:string;snippet?:string}>;
   };
   mailAuth?: {
     spf: string | null;
@@ -58,7 +61,7 @@ function withTimeout<T>(promise:Promise<T>,ms:number):Promise<T>{
 }
 
 function parseAuthenticationResults(text:string){
-  const compact=text.replace(/\r/g,"");
+  const compact=text.replace(/\r/g,"").split(/\n\s*\n/)[0];
   const block=compact.match(/(?:^|\n)Authentication-Results:\s*([^\n]*(?:\n[ \t]+[^\n]*)*)/i)?.[1]||"";
   const read=(name:string)=>{
     const m=block.match(new RegExp("\\b"+name+"\\s*=\\s*([a-z_-]+)","i"));
@@ -74,17 +77,17 @@ function mailAuthEvidence(text:string){
   const failures=[["SPF",auth.spf],["DKIM",auth.dkim],["DMARC",auth.dmarc]].filter(([,v])=>v&&/fail|softfail|temperror|permerror/.test(String(v)));
   const passes=[auth.spf,auth.dkim,auth.dmarc].filter(v=>v==="pass").length;
   for(const [name,value] of failures){reasons.push(`${name} n’est pas validé (${value}).`);delta+=2}
-  if(passes>=2){reasons.push("Les contrôles d’authentification e-mail fournis valident au moins deux mécanismes (SPF/DKIM/DMARC).");delta-=1}
+  if(passes>=2){reasons.push("Les en-têtes fournis déclarent des validations SPF/DKIM/DMARC ; leur authenticité n’est pas vérifiée.")}
   return {auth,reasons,delta};
 }
 
 function advancedLocalEvidence(text:string,base:Analysis){
-  const lower=text.toLowerCase();
+  const lower=activeContent(text);
   const reasons:string[]=[];
   let delta=0;
   const add=(condition:boolean,reason:string,weight:number)=>{if(condition){reasons.push(reason);delta+=weight}};
 
-  add(/\b(?:pcs|transcash|neosurf|toneo|coupon(?:s)?\s+(?:prépayé|recharge)|gift\s*card|carte(?:s)?\s+cadeau)\b/i.test(text),
+  add(/\b(?:pcs|transcash|neosurf|toneo|coupon(?:s)?\s+(?:prépayé|recharge)|gift\s*card|carte(?:s)?\s+cadeau)\b/i.test(lower)&&/achète|achete|achet|envoy|envoi|pai|pay|règl|regl|transf|code/i.test(lower),
     "Le message demande ou évoque un moyen de paiement prépayé difficile à récupérer.",4);
   add(/\b(?:bitcoin|ethereum|usdt|crypto(?:monnaie)?|wallet|portefeuille\s+crypto|seed phrase|phrase de récupération)\b/i.test(lower)&&/envoy|transf|pai|verse|communiqu|saisi/.test(lower),
     "Le message associe une action demandée à une cryptomonnaie ou à un portefeuille crypto.",4);
@@ -111,7 +114,7 @@ function advancedLocalEvidence(text:string,base:Analysis){
   const sensitive=/mot de passe|code de sécurité|otp|carte bancaire|cvv|cryptogramme|virement|paiement|payer|télécharg|installer/i.test(lower);
   if(base.identity?.status==="official"&&allUrlsOfficial&&authPass>=2&&!sensitive){
     reasons.push("L’expéditeur, les liens et l’authentification e-mail concordent avec l’organisme attendu.");
-    delta-=2;
+    // Pasted headers cannot authenticate a sender and must not lower risk.
   }
 
   return{delta,reasons};
@@ -125,17 +128,18 @@ function ageDays(date:string|null|undefined){
 }
 
 async function directDomainResearch(urls:string[]):Promise<WebResearchItem[]>{
-  const unique=[...new Set(urls)].slice(0,4);
+  const unique=[...new Map(urls.map(raw=>{try{return [new URL(raw).hostname,raw]}catch{return [raw,raw]}})).values()].slice(0,4);
   return Promise.all(unique.map(async raw=>{
     let u:URL;
     try{u=new URL(raw)}catch{return {url:raw,host:null,findings:["URL invalide."],sources:[]} as WebResearchItem}
     const host=u.hostname.toLowerCase();
+    if(!networkHost(host))return {url:raw,host,findings:[],sources:[]};
     const findings:string[]=[];
     const sources:string[]=[];
     let dns:WebResearchItem["dns"];
     let rdap:WebResearchItem["rdap"];
     try{
-      const res=await withTimeout(fetch("https://dns.google/resolve?name="+encodeURIComponent(host)+"&type=A",{headers:{Accept:"application/dns-json"},cache:"no-store"}),3500);
+      const res=await fetch("https://dns.google/resolve?name="+encodeURIComponent(host)+"&type=A",{headers:{Accept:"application/dns-json"},cache:"no-store",credentials:"omit",signal:AbortSignal.timeout(3500)});
       if(res.ok){
         const data=await res.json();
         const answers=(data.Answer||[]).map((x:any)=>String(x.data||"")).filter(Boolean);
@@ -145,7 +149,7 @@ async function directDomainResearch(urls:string[]):Promise<WebResearchItem[]>{
       }
     }catch{}
     try{
-      const res=await withTimeout(fetch("https://rdap.org/domain/"+encodeURIComponent(host),{headers:{Accept:"application/rdap+json, application/json"},cache:"no-store"}),4500);
+      const res=await fetch("https://rdap.org/domain/"+encodeURIComponent(registeredDomain(host)),{headers:{Accept:"application/rdap+json, application/json"},cache:"no-store",credentials:"omit",signal:AbortSignal.timeout(4500)});
       if(res.ok){
         const data=await res.json();
         const events=Array.isArray(data.events)?data.events:[];
@@ -167,7 +171,8 @@ function requestExtensionResearch(urls:string[], text:string, claimedBrand?:stri
   if(typeof window==="undefined"||!urls.length)return Promise.resolve(null);
   return new Promise(resolve=>{
     const id="verif-"+Date.now()+"-"+Math.random().toString(36).slice(2);
-    const timer=setTimeout(()=>{window.removeEventListener("message",onMessage);resolve(null)},6500);
+    if(!document.documentElement.hasAttribute('data-verif-extension')){resolve(null);return}
+    const timer=setTimeout(()=>{window.removeEventListener("message",onMessage);resolve(null)},5500);
     function onMessage(event:MessageEvent){
       if(event.source!==window)return;
       const data=event.data;
@@ -198,10 +203,14 @@ async function localAiReview(text:string, base:Analysis){
     expectedInputs:[{type:"text",languages:["fr","en"]}],
     expectedOutputs:[{type:"text",languages:["fr"]}]
   };
+  let session:any;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),8000);
   try{
-    const availability=await LanguageModel.availability(opts);
-    if(availability==="unavailable")return {available:false,used:false};
-    const session=await LanguageModel.create({
+    const availability=await withTimeout<string>(LanguageModel.availability(opts),1000);
+    if(availability!=="available")return {available:false,used:false};
+    const pending=LanguageModel.create({
+      signal:controller.signal,
       ...opts,
       initialPrompts:[{
         role:"system",
@@ -215,12 +224,13 @@ async function localAiReview(text:string, base:Analysis){
         ].join("\n")
       }]
     });
+    pending.then((created:any)=>{if(controller.signal.aborted)created.destroy?.()},()=>{});
+    session=await withTimeout<any>(pending,2000);
     const prompt=JSON.stringify({
       contenu:text.slice(0,10000),
       analyse_deterministe:{verdict:base.verdict,raisons:base.reasons.slice(0,12),identite:base.identity||null,urls:base.urls||[]}
     });
-    const raw=await withTimeout(session.prompt(prompt),8000);
-    session.destroy?.();
+    const raw=await withTimeout<string>(session.prompt(prompt,{signal:controller.signal}),6000);
     const parsed=safeJson(raw);
     if(!parsed||!["ok","check","caution","stop"].includes(parsed.verdict))return {available:true,used:false};
     return {
@@ -230,13 +240,19 @@ async function localAiReview(text:string, base:Analysis){
       reasons:Array.isArray(parsed.reasons)?parsed.reasons.filter((x:any)=>typeof x==="string").slice(0,6):[]
     } as IntelligenceMeta["ai"];
   }catch{return {available:true,used:false} as IntelligenceMeta["ai"]}
+  finally{clearTimeout(timer);controller.abort();try{session?.destroy?.()}catch{}}
 }
 
 function researchRisk(items:WebResearchItem[], officialDomain?:string|null){
   let delta=0;
   const reasons:string[]=[];
+  const seen=new Set<string>();
   for(const item of items){
-    for(const f of item.findings||[]){reasons.push("Recherche web : "+f);if(/très récemment/i.test(f))delta+=3;else if(/récent/i.test(f))delta+=1;else if(/ne renvoie pas/i.test(f))delta+=1}
+    if(!item.host||seen.has(item.host))continue;
+    seen.add(item.host);
+    for(const f of item.findings||[])reasons.push("Recherche web : "+f);
+    const age=item.rdap?.ageDays;
+    if(typeof age==="number"&&Number.isFinite(age)&&age>=0)delta+=age<30?3:age<90?1:0;
     if(item.finalHost&&item.host&&item.finalHost!==item.host){reasons.push(`Recherche web : le lien redirige de ${item.host} vers ${item.finalHost}.`);delta+=1}
     if(officialDomain&&item.finalHost&&item.finalHost!==officialDomain&&!item.finalHost.endsWith("."+officialDomain)){delta+=2}
     if(item.status&&item.status>=400){reasons.push(`Recherche web : le site répond avec le statut HTTP ${item.status}.`)}
@@ -261,28 +277,30 @@ function merge(base:Analysis, text:string, ai:IntelligenceMeta["ai"], research:{
   if(ai.used&&ai.verdict){
     const aiRank=verdictRank[ai.verdict];
     // L’IA peut renforcer le verdict, mais jamais annuler seule des preuves techniques fortes.
-    if(aiRank>rank)rank=Math.min(3,Math.max(rank,aiRank));
+    if(aiRank>rank)rank=Math.max(rank,Math.min(2,aiRank));
     reasons.push(...(ai.reasons||[]).map(r=>"IA locale : "+r));
   }
 
   const finalVerdict=rankVerdict(rank);
-  const webUsed=webItems.length>0;
+  const webUsed=webItems.some(i=>Boolean(i.dns||i.rdap||i.status));
   const mode: IntelligenceMeta["mode"]=ai.used&&webUsed?"local+ai+web":ai.used?"local+ai":webUsed?"local+web":"local";
   const strongIndependent=(authInfo.auth.spf==="fail"||authInfo.auth.dkim==="fail"||authInfo.auth.dmarc==="fail")&&rr.delta>0;
   const confidence:"faible"|"moyenne"|"élevée"=finalVerdict==="stop"&&(strongIndependent||score>=10)?"élevée":(ai.used||webUsed||score>=4)?"moyenne":base.confidence;
 
   const summary=finalVerdict===base.verdict?base.summary:
-    finalVerdict==="stop"?"Plusieurs sources indépendantes relèvent des signaux forts compatibles avec une fraude.":
+    finalVerdict==="stop"?"L’analyse relève des signaux forts compatibles avec une fraude.":
     finalVerdict==="caution"?"L’analyse renforcée a trouvé des éléments qui justifient une prudence accrue.":
     "L’analyse renforcée recommande une vérification supplémentaire avant d’agir.";
 
-  return {
+  return refreshIncident({
     ...base,
     verdict:finalVerdict,
     title:titles[finalVerdict],
     summary,
     reasons:dedupe(reasons).slice(0,18),
     confidence,
+    actions:finalVerdict!==base.verdict?["Vérifie par un canal indépendant avant d’agir.","Ne communique aucun code, mot de passe ou paiement depuis ce message.",...base.actions]:base.actions,
+    incidentReport:undefined,
     engine:mode==="local"?"VÉRIF local":"VÉRIF Intelligence",
     evidence:{...(base.evidence||{risk:0}),risk:score},
     intelligence:{
@@ -291,31 +309,34 @@ function merge(base:Analysis, text:string, ai:IntelligenceMeta["ai"], research:{
       web:{attempted:(base.urls?.length||0)>0,available:webUsed,provider:research?.provider,items:webItems,searchedAt:webUsed?new Date().toISOString():undefined},
       mailAuth:authInfo.auth
     }
-  };
+  });
 }
 
-export async function analyzeIntelligently(input:string, baseInput?:Analysis):Promise<IntelligentAnalysis>{
+export function enrichLocal(base:Analysis,input:string,ai:IntelligenceMeta['ai'],research:{provider?:string;items:WebResearchItem[]}|null){return merge(base,input,ai,research,mailAuthEvidence(input));}
+
+export function analyzeLocal(input:string):IntelligentAnalysis{
+  return merge(analyzeText(input),input,{available:false,used:false},null,mailAuthEvidence(input));
+}
+
+export async function analyzeIntelligently(input:string, baseInput?:Analysis, options:{web?:boolean}={}):Promise<IntelligentAnalysis>{
   const base=baseInput||analyzeText(input);
-  const urls=(base.urls||[]).map(u=>u.url);
+  const urls=options.web===true?(base.urls||[]).map(u=>u.url):[];
   const authInfo=mailAuthEvidence(input);
 
   // Démarre l’IA locale immédiatement (important pour les navigateurs qui exigent une activation utilisateur).
   const aiPromise=localAiReview(input,base);
   const extensionPromise=requestExtensionResearch(urls,input,base.identity?.claimedBrand,base.identity?.officialDomain);
 
-  let extensionResearch:null|{provider?:string;items:WebResearchItem[]}=null;
-  let directResearch:WebResearchItem[]=[];
-  const [ai, ext] = await Promise.all([
-    aiPromise,
-    extensionPromise.catch(()=>null)
-  ]);
-  extensionResearch=ext;
-
-  if(!extensionResearch&&urls.length){
-    directResearch=await directDomainResearch(urls).catch(()=>[]);
-  }
-  const research=extensionResearch||{provider:directResearch.length?"RDAP + DNS public":"indisponible",items:directResearch};
-  return merge(base,input,ai,research,authInfo);
+  const researchPromise=(async()=>{
+    const extensionResearch=await extensionPromise.catch(()=>null);
+    if(extensionResearch)return extensionResearch;
+    const items=urls.length?await directDomainResearch(urls).catch(()=>[]):[];
+    return {provider:items.length?'RDAP + DNS public':'indisponible',items};
+  })();
+  const [ai,research]=await Promise.all([aiPromise,researchPromise]);
+  const result=merge(base,input,ai,research,authInfo);
+  if(result.intelligence)result.intelligence.web.attempted=urls.length>0;
+  return result;
 }
 
-export const __test={parseAuthenticationResults,mailAuthEvidence,advancedLocalEvidence,researchRisk,ageDays};
+export const __test={parseAuthenticationResults,mailAuthEvidence,advancedLocalEvidence,researchRisk,ageDays,merge,localAiReview};

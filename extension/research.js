@@ -1,4 +1,5 @@
 (function(global){
+  const {networkHost,registeredDomain}=VERIF_CORE;
   const MAX_URLS=4;
   const PRIVATE_HOST=/^(?:localhost|127\.|10\.|192\.168\.|169\.254\.|0\.|::1$|fc|fd|fe80)/i;
 
@@ -37,9 +38,9 @@
     let u;try{u=new URL(raw)}catch{return{url:raw,host:null,findings:["URL invalide."],sources:[]}}
     const host=u.hostname.toLowerCase(),findings=[],sources=[];
     if(!/^https?:$/.test(u.protocol))return{url:raw,host,findings:["Protocole non HTTP(S)."],sources};
-    if(PRIVATE_HOST.test(host)||/^\d+\.\d+\.\d+\.\d+$/.test(host)&&PRIVATE_HOST.test(host))return{url:raw,host,findings:["Adresse locale ou privée : recherche réseau ignorée."],sources};
+    if(!networkHost(host))return{url:raw,host,findings:["Adresse locale ou privée : recherche réseau ignorée."],sources};
 
-    const [dnsInfo,rdapInfo]=await Promise.all([dns(host),rdap(host)]);
+    const [dnsInfo,rdapInfo]=await Promise.all([dns(host),rdap(registeredDomain(host))]);
     if(dnsInfo){sources.push("Google DNS");if(!dnsInfo.resolved)findings.push("Le domaine ne résout pas vers une adresse IPv4 publique.")}
     if(rdapInfo){
       sources.push("RDAP");
@@ -48,28 +49,8 @@
     }
 
     let finalUrl=null,finalHost=null,status=null,title=null;
-    const t=timeout(6000);
-    try{
-      const r=await fetch(raw,{method:"GET",redirect:"follow",credentials:"omit",cache:"no-store",referrerPolicy:"no-referrer",headers:{"Accept":"text/html,application/xhtml+xml;q=0.9,*/*;q=0.1"},signal:t.signal});
-      status=r.status;finalUrl=r.url||raw;try{finalHost=new URL(finalUrl).hostname.toLowerCase()}catch{}
-      sources.push("HTTP direct");
-      if(finalHost&&finalHost!==host)findings.push("Le lien redirige vers un autre domaine : "+finalHost+".");
-      const type=(r.headers.get("content-type")||"").toLowerCase();
-      if(type.includes("text/html")){
-        const reader=r.body?.getReader();let total=0,rawText="";
-        if(reader){
-          const dec=new TextDecoder();
-          while(total<65536){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;rawText+=dec.decode(value,{stream:true})}
-          try{await reader.cancel()}catch{}
-        }else rawText=(await r.text()).slice(0,65536);
-        title=(rawText.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||"").replace(/\s+/g," ").trim().slice(0,180)||null;
-        const visible=stripHtml(rawText).slice(0,4000).toLowerCase();
-        if(/mot de passe|password|code de sécurité|cvv|cryptogramme|numéro de carte/.test(visible))findings.push("La page visible demande ou évoque des informations sensibles.");
-        if(/urgent|immédiat|suspendu|bloqué|dernière chance|expir/.test(visible))findings.push("La page visible utilise un langage de pression ou d’urgence.");
-      }
-    }catch{findings.push("La page n’a pas pu être interrogée directement.")}finally{t.clear()}
-
-    return{url:raw,host,finalUrl,finalHost,status,title,dns:dnsInfo||undefined,rdap:rdapInfo||undefined,findings:[...new Set(findings)],sources};
+    /* Target URLs are never opened automatically: tracking links and redirects can have side effects. */
+    return {url:raw,host,dns:dnsInfo||undefined,rdap:rdapInfo||undefined,findings,sources};
   }
 
   async function research(payload){
@@ -82,7 +63,7 @@
         item.findings.push("La destination finale ne correspond pas au domaine officiel attendu "+official+".");
       }
     }
-    return{provider:"Extension VÉRIF · DNS + RDAP + HTTP",items,searchedAt:new Date().toISOString()};
+    return{provider:"Extension VÉRIF · DNS + RDAP",items,searchedAt:new Date().toISOString()};
   }
 
   global.VERIF_RESEARCHER={research,inspectPage,ageDays};

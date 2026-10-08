@@ -33,6 +33,7 @@ const context={
   console
 };
 vm.createContext(context);
+vm.runInContext(fs.readFileSync(new URL('../core.js',import.meta.url),'utf8'),context);
 vm.runInContext(code,context);
 const R=context.self.VERIF_RESEARCHER;
 assert.ok(R,"researcher exposed");
@@ -42,9 +43,11 @@ const invalid=await R.inspectPage("pas une url");
 assert.equal(invalid.host,null);
 assert.match(invalid.findings[0],/invalide/i);
 
-const result=await R.inspectPage("https://young.example/login");
+const result=await R.inspectPage("https://young-domain.com/login");
 assert.equal(result.dns.resolved,true);
 assert.ok(result.rdap.ageDays<=6);
 assert.match(result.findings.join(" "),/très récemment/i);
-assert.match(result.findings.join(" "),/informations sensibles/i);
+assert.equal(result.finalUrl,undefined,'does not open target links');
+const privateResult=await R.inspectPage('http://172.16.1.1');
+assert.equal(privateResult.dns,undefined);
 console.log("VÉRIF extension research: tests passés.");

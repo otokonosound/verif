@@ -5,8 +5,8 @@ import "./styles.css";
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.addEventListener("controllerchange", () => { if (!sessionStorage.getItem("verif-sw-reloaded-v6")) { sessionStorage.setItem("verif-sw-reloaded-v6", "1"); window.location.reload(); } });
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js?v=6`, { updateViaCache: "none" }).catch(() => {});
+    // Activating an offline cache must not discard a message or file being analyzed.
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js?v=7`, { updateViaCache: "none" }).catch(() => {});
   });
 }
 

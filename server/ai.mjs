@@ -86,7 +86,8 @@ export function mergeAiOpinion(deterministic, ai) {
   if (!ai) return { ...deterministic, ai: null, engine: deterministic.engine };
 
   const rank = { ok: 0, check: 1, caution: 2, stop: 3 };
-  const finalVerdict = rank[ai.verdict] > rank[deterministic.verdict] ? ai.verdict : deterministic.verdict;
+  const proposed=["ok","check","caution","stop"][Math.min(2,rank[ai.verdict]||0)];
+  const finalVerdict = rank[proposed] > rank[deterministic.verdict] ? proposed : deterministic.verdict;
 
   const titles = {
     ok: "Aucun signal préoccupant détecté",
@@ -109,7 +110,7 @@ export function mergeAiOpinion(deterministic, ai) {
     summary,
     reasons,
     actions,
-    confidence: finalVerdict === "stop" ? "élevée" : ai.confidence,
+    confidence: finalVerdict === deterministic.verdict ? deterministic.confidence : "moyenne",
     ai: {
       verdict: ai.verdict,
       confidence: ai.confidence,

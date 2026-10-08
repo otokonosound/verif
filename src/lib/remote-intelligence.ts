@@ -48,22 +48,22 @@ export function mergeRemoteIntelligence(local:IntelligentAnalysis,remote:any):In
       aiUsed:Boolean(remote.ai)
     }
   };
-  const remoteItems=Array.isArray(remote.research?.items)?remote.research.items.filter((i:any)=>i&&typeof i.host==='string').slice(0,4):[];
+  const remoteItems=Array.isArray(remote.research?.items)?remote.research.items.filter((i:any)=>i&&typeof i.host==='string'&&typeof i.url==='string').slice(0,4).map((i:any)=>({url:i.url,host:i.host,findings:Array.isArray(i.findings)?i.findings.filter((f:any)=>typeof f==='string'):[],dns:typeof i.dns?.resolved==='boolean'?{resolved:i.dns.resolved}:undefined,rdap:Number.isFinite(i.rdap?.ageDays)?{ageDays:i.rdap.ageDays}:undefined})):[];
   const searchResults=Array.isArray(remote.research?.searchResults)?remote.research.searchResults.filter((r:any)=>r&&typeof r.title==='string'&&typeof r.url==='string'&&/^https:\/\//.test(r.url)).slice(0,5):[];
   const web=local.intelligence?.web||{attempted:false,available:false,items:[]};
   intelligence.ai ||= {available:false,used:false};
-  intelligence.web={...web,attempted:true,available:web.available||remoteItems.some((i:any)=>i.dns||i.rdap)||searchResults.length>0,items:[...web.items,...remoteItems],searchResults,provider:remote.research?.provider||web.provider};
+  intelligence.web={...web,attempted:true,available:web.available||remoteItems.some((i:any)=>i.dns||i.rdap)||searchResults.length>0,items:[...web.items,...remoteItems],searchResults:searchResults.map((r:any)=>({...r,snippet:typeof r.snippet==='string'?r.snippet:''})),provider:typeof remote.research?.provider==='string'?remote.research.provider:web.provider};
   intelligence.mode=intelligence.ai.used?(intelligence.web.available?'local+ai+web':'local+ai'):(intelligence.web.available?'local+web':'local');
   return refreshIncident({
     ...local,
     verdict:finalVerdict,
-    title:finalVerdict===local.verdict?local.title:(remote.title||local.title),
-    summary:finalVerdict===local.verdict?local.summary:(remote.summary||local.summary),
+    title:finalVerdict===local.verdict?local.title:(typeof remote.title==='string'?remote.title:'Prudence'),
+    summary:finalVerdict===local.verdict?local.summary:(typeof remote.summary==='string'?remote.summary:'Des signaux supplémentaires nécessitent une vérification.'),
     reasons,
     actions,
     evidence:{...local.evidence,risk:Math.max(local.evidence?.risk||0,Number.isFinite(remote.evidence?.risk)?remote.evidence.risk:0)},
     incidentReport:undefined,
-    confidence:rank[remoteVerdict]>rank[local.verdict]?(remote.confidence||local.confidence):local.confidence,
+    confidence:rank[remoteVerdict]>rank[local.verdict]?'moyenne':local.confidence,
     engine:"VÉRIF Intelligence hybride",
     intelligence
   });

@@ -320,26 +320,23 @@ export function analyzeLocal(input:string):IntelligentAnalysis{
 
 export async function analyzeIntelligently(input:string, baseInput?:Analysis, options:{web?:boolean}={}):Promise<IntelligentAnalysis>{
   const base=baseInput||analyzeText(input);
-  const urls=options.web===false?[]:(base.urls||[]).map(u=>u.url);
+  const urls=options.web===true?(base.urls||[]).map(u=>u.url):[];
   const authInfo=mailAuthEvidence(input);
 
   // Démarre l’IA locale immédiatement (important pour les navigateurs qui exigent une activation utilisateur).
   const aiPromise=localAiReview(input,base);
   const extensionPromise=requestExtensionResearch(urls,input,base.identity?.claimedBrand,base.identity?.officialDomain);
 
-  let extensionResearch:null|{provider?:string;items:WebResearchItem[]}=null;
-  let directResearch:WebResearchItem[]=[];
-  const [ai, ext] = await Promise.all([
-    aiPromise,
-    extensionPromise.catch(()=>null)
-  ]);
-  extensionResearch=ext;
-
-  if(!extensionResearch&&urls.length){
-    directResearch=await directDomainResearch(urls).catch(()=>[]);
-  }
-  const research=extensionResearch||{provider:directResearch.length?"RDAP + DNS public":"indisponible",items:directResearch};
-  return merge(base,input,ai,research,authInfo);
+  const researchPromise=(async()=>{
+    const extensionResearch=await extensionPromise.catch(()=>null);
+    if(extensionResearch)return extensionResearch;
+    const items=urls.length?await directDomainResearch(urls).catch(()=>[]):[];
+    return {provider:items.length?'RDAP + DNS public':'indisponible',items};
+  })();
+  const [ai,research]=await Promise.all([aiPromise,researchPromise]);
+  const result=merge(base,input,ai,research,authInfo);
+  if(result.intelligence)result.intelligence.web.attempted=urls.length>0;
+  return result;
 }
 
 export const __test={parseAuthenticationResults,mailAuthEvidence,advancedLocalEvidence,researchRisk,ageDays,merge,localAiReview};

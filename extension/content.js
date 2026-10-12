@@ -58,8 +58,11 @@
     });
     button.addEventListener("click", () => {
       const data = extractMail();
-      const target = "https://otokonosound.github.io/verif/?text=" +
-        encodeURIComponent(data.text) + "&url=" + encodeURIComponent(data.url);
+      // Fragment, not query string: the mail is read by the VÉRIF page without being sent to its server,
+      // and long messages no longer exceed the URL length accepted by the host.
+      const params = new URLSearchParams();
+      params.set("text", String(data.text || "").slice(0, 20000));
+      const target = "https://otokonosound.github.io/verif/#" + params.toString();
       window.open(target, "_blank", "noopener,noreferrer");
     });
     document.documentElement.appendChild(button);

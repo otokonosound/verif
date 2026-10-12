@@ -3,6 +3,11 @@
   "name": "VÉRIF — Vérifie avant d'agir",
   "version": "2.1.0",
   "description": "Vérifie rapidement une page, un lien ou du texte avant d'agir.",
+  "icons": {
+    "16": "icon-16.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
   "permissions": [
     "activeTab",
     "contextMenus",
@@ -13,7 +18,12 @@
   ],
   "action": {
     "default_title": "VÉRIF — Vérifier cette page",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon-16.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
   },
   "background": {
     "service_worker": "background.js"

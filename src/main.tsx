@@ -6,7 +6,7 @@ import "./styles.css";
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     // Activating an offline cache must not discard a message or file being analyzed.
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js?v=7`, { updateViaCache: "none" }).catch(() => {});
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js?v=8`, { updateViaCache: "none" }).catch(() => {});
   });
 }
 

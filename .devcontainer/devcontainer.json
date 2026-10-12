@@ -13,5 +13,5 @@
     }
   },
   "postCreateCommand": "npm install",
-  "postStartCommand": "bash -lc 'pkill -f "node server/index.mjs" 2>/dev/null || true; nohup node server/index.mjs >/tmp/verif-api.log 2>&1 & nohup npm run dev -- --host 0.0.0.0 >/tmp/verif-vite.log 2>&1 &'"
+  "postStartCommand": "bash -lc 'pkill -f server/index.mjs 2>/dev/null || true; nohup npm run api >/tmp/verif-api.log 2>&1 & nohup npm run dev >/tmp/verif-vite.log 2>&1 &'"
 }

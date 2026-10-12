@@ -1,4 +1,4 @@
-import {writeFileSync,readFileSync,mkdirSync,readdirSync,existsSync} from 'node:fs';
+import {writeFileSync,readFileSync,mkdirSync,readdirSync,existsSync,copyFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import JSZip from 'jszip';
 const {version}=JSON.parse(readFileSync('package.json','utf8'));
@@ -13,6 +13,15 @@ if(existsSync('dist/sw.js')&&existsSync('dist/index.html')){
   const sw=readFileSync('dist/sw.js','utf8');
   if(sw.includes('/*__PRECACHE__*/'))writeFileSync('dist/sw.js',sw.replace('/*__PRECACHE__*/',assets.map(a=>JSON.stringify(a)).join(',')));
 }
+
+// Text recognition runs entirely from this site: worker, engine and French language data are
+// served next to the app (no third-party CDN) and kept by the service worker for offline use.
+const tesseractVersion=JSON.parse(readFileSync('node_modules/tesseract.js/package.json','utf8')).version;
+const ocrDir=`dist/ocr/${tesseractVersion}`;
+mkdirSync(ocrDir,{recursive:true});
+copyFileSync('node_modules/tesseract.js/dist/worker.min.js',`${ocrDir}/worker.min.js`);
+for(const core of ['tesseract-core-lstm.wasm.js','tesseract-core-simd-lstm.wasm.js','tesseract-core-relaxedsimd-lstm.wasm.js'])copyFileSync(`node_modules/tesseract.js-core/${core}`,`${ocrDir}/${core}`);
+copyFileSync('node_modules/@tesseract.js-data/fra/4.0.0_best_int/fra.traineddata.gz',`${ocrDir}/fra.traineddata.gz`);
 
 const zip=new JSZip();
 for(const f of readdirSync('extension').filter(f=>/\.(?:js|html|css|json|png)$/.test(f)))zip.file(f,readFileSync('extension/'+f));

@@ -1,7 +1,7 @@
 {
   "name": "verif",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,6 +23,7 @@
     "pretest:extension": "npm run build:engine"
   },
   "dependencies": {
+    "@tesseract.js-data/fra": "1.0.0",
     "@vitejs/plugin-react": "6.1.2",
     "jsqr": "1.4.0",
     "jszip": "3.10.1",

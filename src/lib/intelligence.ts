@@ -1,4 +1,4 @@
-import { analyzeText, refreshIncident, type Analysis, type Verdict } from "./analyze";
+import { actionsFor, analyzeText, refreshIncident, type Analysis, type Verdict } from "./analyze";
 import { networkHost, registeredDomain } from './domain';
 import { activeContent } from './context';
 
@@ -85,7 +85,7 @@ function advancedLocalEvidence(text:string,base:Analysis){
   const lower=activeContent(text);
   const reasons:string[]=[];
   let delta=0;
-  const add=(condition:boolean,reason:string,weight:number)=>{if(condition){reasons.push(reason);delta+=weight}};
+  const add=(condition:boolean,reason:string,weight:number)=>{if(condition&&weight>0){reasons.push(reason);delta+=weight}};
 
   add(/\b(?:pcs|transcash|neosurf|toneo|coupon(?:s)?\s+(?:prépayé|recharge)|gift\s*card|carte(?:s)?\s+cadeau)\b/i.test(lower)&&/achète|achete|achet|envoy|envoi|pai|pay|règl|regl|transf|code/i.test(lower),
     "Le message demande ou évoque un moyen de paiement prépayé difficile à récupérer.",4);
@@ -105,6 +105,23 @@ function advancedLocalEvidence(text:string,base:Analysis){
     "Le message pousse une transaction de marketplace hors du canal officiel.",3);
   add(/\b(?:code reçu|code sms|code de vérification|otp)\b/i.test(lower)&&/donne|communique|transmets|envoie|partage/.test(lower),
     "Le message demande explicitement de transmettre un code à usage unique.",5);
+  const money=/\d[\d\s.,]*\s*(?:€|euros?\b|eur\b)|virement|payer|paie|payez|régler|réglez|frais|western union|mandat cash|bitcoin|crypto|carte(?:s)? cadeau|transcash|pcs/i.test(lower);
+  add(/(?:nouveau numéro|changé de numéro|change de numéro|cassé mon (?:téléphone|portable|tel)|perdu mon (?:téléphone|portable|tel)|mon (?:téléphone|portable) (?:est )?(?:cassé|tombé|perdu)|enregistre (?:ce|mon) (?:nouveau )?numéro)/i.test(lower),
+    "Le message vient d’un « nouveau numéro » qui se présente comme un proche : vérifie en appelant son ancien numéro.",money?5:/aide|besoin|urgent|whatsapp|écris-moi|ecris-moi|réponds-moi/i.test(lower)?2:0);
+  add(/(?:héritage|succession|legs\b|testament|loterie|tirage au sort|vous avez gagné|tu as gagné|gagnant)/i.test(lower)&&/(?:millions?|frais|régl|pay|virement|coordonnées|formalités|réclamer|récupérer|recevoir)/i.test(lower)&&!/points? de fidélité/i.test(lower),
+    "Le message promet un gain, un lot ou un héritage inattendu : ce type de promesse précède presque toujours une demande d’argent ou de données.",/millions?|frais/i.test(lower)?6:4);
+  add(/(?:placement|investi(?:r|ssez|ssement)|rendement|trading|crypto|forex|bourse)/i.test(lower)&&/(?:garanti|sans risque|\d+\s*%\s*(?:par|\/|chaque)\s*(?:mois|semaine|jour)|doubl(?:er|ez)|gagnez\s+\d|rapporte\s+\d)/i.test(lower),
+    "Le message promet un rendement élevé ou garanti : aucun placement réel n’est à la fois sans risque et très rentable.",6);
+  add(/(?:virus|infecté|piraté|cheval de troie|logiciel malveillant|malware|bloqué)/i.test(lower)&&/(?:ordinateur|\bpc\b|windows|mac\b|appareil|navigateur)/i.test(lower)&&/(?:appelez|appeler|contactez|composez|support technique|assistance technique|technicien|\b0\d(?:[ .]?\d{2}){4}\b)/i.test(lower),
+    "Le message annonce un problème informatique et demande d’appeler un support : c’est le scénario du faux support technique.",6);
+  add(/(?:recrut|emploi|offre d['’]emploi|mission|job|travail|tâches?|complément de revenu)/i.test(lower)&&/(?:liker|likes?\b|abonnez|noter|avis\b|à domicile|depuis chez (?:vous|toi)|\d+\s*(?:€|euros?)\s*(?:par|\/|à)\s*(?:jour|heure|h\b|tâche))/i.test(lower)&&/(?:whatsapp|telegram|contact|écri|répond|ajoute)/i.test(lower),
+    "Le message propose un travail facile et très bien payé par messagerie : scénario classique d’arnaque aux « missions » rémunérées.",5);
+  add(/(?:webcam|filmé|images? intimes?|sites? (?:pour adultes|porno|x\b))/i.test(lower)&&money&&/(?:contacts|famille|proches|publier|diffuser|envoyer la vidéo|j['’]envoie la vidéo)/i.test(lower),
+    "Le message menace de diffuser des images intimes contre paiement (chantage). Ne paie pas : ces menaces sont presque toujours du bluff.",6);
+  add(/(?:\b08\s?9\d|\b08\s?1\d|\b08\s?2\d|\b3\d\s?\d\d\b)(?:[ .-]?\d{2}){2,3}/.test(lower)&&/(?:appel|rappel|compos|contact|joindre)/i.test(lower),
+    "Le message demande d’appeler un numéro surtaxé.",3);
+  add(/(?:western union|moneygram|mandat cash|ria money)/i.test(lower)&&money,
+    "Le message demande un transfert d’argent difficile à annuler.",3);
   add(/[\u200B-\u200D\u2060\uFEFF]/u.test(text),
     "Le contenu contient des caractères invisibles pouvant masquer ou altérer une adresse.",3);
 
@@ -299,7 +316,7 @@ function merge(base:Analysis, text:string, ai:IntelligenceMeta["ai"], research:{
     summary,
     reasons:dedupe(reasons).slice(0,18),
     confidence,
-    actions:finalVerdict!==base.verdict?["Vérifie par un canal indépendant avant d’agir.","Ne communique aucun code, mot de passe ou paiement depuis ce message.",...base.actions]:base.actions,
+    actions:finalVerdict!==base.verdict?actionsFor(finalVerdict,Boolean(base.urls?.length)):base.actions,
     incidentReport:undefined,
     engine:mode==="local"?"VÉRIF local":"VÉRIF Intelligence",
     evidence:{...(base.evidence||{risk:0}),risk:score},
@@ -309,7 +326,7 @@ function merge(base:Analysis, text:string, ai:IntelligenceMeta["ai"], research:{
       web:{attempted:(base.urls?.length||0)>0,available:webUsed,provider:research?.provider,items:webItems,searchedAt:webUsed?new Date().toISOString():undefined},
       mailAuth:authInfo.auth
     }
-  });
+  },text);
 }
 
 export function enrichLocal(base:Analysis,input:string,ai:IntelligenceMeta['ai'],research:{provider?:string;items:WebResearchItem[]}|null){return merge(base,input,ai,research,mailAuthEvidence(input));}

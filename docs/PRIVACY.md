@@ -1,11 +1,11 @@
-# Politique de confidentialité technique — VÉRIF 2.1
+# Politique de confidentialité technique — VÉRIF 2.2
 
 VÉRIF applique un principe de minimisation : utiliser d’abord les traitements locaux et ne contacter le réseau que pour les vérifications qui nécessitent une donnée externe.
 
 ## Traitements locaux
 
 - le moteur déterministe s’exécute dans le navigateur ;
-- l’OCR des images est exécuté côté client ;
+- l’OCR des images est exécuté côté client ; le moteur et les données de langue française sont servis par le site VÉRIF lui-même (aucun CDN tiers) puis conservés par le navigateur pour fonctionner hors ligne ;
 - les QR codes sont décodés localement ;
 - les fichiers pris en charge sont lus localement et ne sont jamais exécutés ;
 - l’IA embarquée, quand le navigateur expose `LanguageModel`, s’exécute sur l’appareil ;

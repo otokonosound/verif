@@ -125,3 +125,41 @@ test('the app shell opens offline after the first visit',async({page,context})=>
   await expect(page.locator('.stateLabel')).toContainText('STOP');
   await context.setOffline(false);
 });
+test('an example shows plain advice first, reporting links and folded technical details',async({page})=>{
+  await page.setViewportSize({width:390,height:800});
+  await page.goto(base);
+  await page.getByRole('button',{name:'Faux proche'}).click();
+  await expect(page.locator('.stateLabel')).toContainText('STOP');
+  await expect(page.getByRole('heading',{level:2})).toBeFocused();
+  await expect(page.getByRole('heading',{name:'Que faire maintenant ?'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:/Faux proche/})).toBeVisible();
+  await expect(page.getByRole('link',{name:/33700/})).toBeVisible();
+  await expect(page.getByRole('link',{name:/0 805 805 817/})).toHaveAttribute('href','tel:+33805805817');
+  await expect(page.getByText('Score de risque')).toBeHidden();
+  await page.getByText('Détails techniques').click();
+  await expect(page.getByText('Score de risque')).toBeVisible();
+});
+test('a legitimate one-time code SMS is not flagged',async({page})=>{
+  await page.goto(base);
+  await page.locator('textarea').first().fill('Votre code de connexion Ameli est 548211. Il est valable 10 minutes. Ne le communiquez à personne.');
+  await page.getByRole('button',{name:/^VÉRIFIER$/}).click();
+  await expect(page.locator('.stateLabel')).toContainText('OK');
+});
+test('help page lists common scams and useful numbers',async({page})=>{
+  await page.goto(base);
+  await page.locator('footer').getByRole('button',{name:'Comment ça marche'}).click();
+  await expect(page.getByRole('heading',{name:'Les arnaques les plus fréquentes'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'0 892 705 705'})).toHaveAttribute('href','tel:+33892705705');
+});
+test('text in a screenshot is read on the device, without any third-party server',async({page})=>{
+  test.setTimeout(90000);
+  const external:string[]=[];
+  page.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1'))external.push(r.url())});
+  await page.goto(base);
+  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=900;c.height=260;const x=c.getContext('2d')!;x.fillStyle='#fff';x.fillRect(0,0,900,260);x.fillStyle='#000';x.font='34px sans-serif';
+    x.fillText('Votre colis est bloque. Payez 2,99 EUR',30,100);x.fillText('immediatement sur https://colis-frais.com',30,170);return c.toDataURL('image/png').split(',')[1]});
+  await page.locator('input[type=file]').first().setInputFiles({name:'capture.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
+  await expect(page.locator('.inputAgain textarea')).toHaveValue(/colis-frais\.com/,{timeout:60000});
+  await expect(page.locator('.stateLabel')).toContainText(/PRUDENCE|STOP/);
+  expect(external).toEqual([]);
+});

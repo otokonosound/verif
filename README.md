@@ -1,12 +1,21 @@
-# VÉRIF 2.1 — Intelligence
+# VÉRIF 2.2 — l’anti-arnaque pour tout le monde
 
 **Un doute ? Vérifie avant d’agir.**
 
 VÉRIF est une PWA mobile-first et une extension Chrome/Edge qui analyse des SMS, e-mails, URL, QR codes, captures et documents avant que l’utilisateur n’agisse.
 
-La version 2.1 remplace le simple score heuristique par une architecture **multi-preuves** : moteur déterministe, authentification e-mail, renseignements DNS/RDAP, recherche web via l’extension, IA embarquée lorsqu’elle est disponible, et moteur serveur optionnel.
+Depuis la version 2.1, VÉRIF remplace le simple score heuristique par une architecture **multi-preuves** : moteur déterministe, authentification e-mail, renseignements DNS/RDAP, recherche web via l’extension, IA embarquée lorsqu’elle est disponible, et moteur serveur optionnel.
 
 Application publique : https://otokonosound.github.io/verif/
+
+## Nouveautés 2.2
+
+- **Détection des arnaques du quotidien** : faux proche (« maman, j’ai changé de numéro »), faux conseiller bancaire, faux support technique, faux placement, fausse offre d’emploi (« missions » rémunérées), faux gain ou héritage, chantage à la webcam, numéros surtaxés, faux RIB, adresses déguisées (`ups.com-livraison.info`), CPF, Crit’Air, Linky.
+- **Moins de fausses alertes** : un simple SMS contenant un code de connexion (« votre code est 123456, ne le communiquez à personne ») n’est plus signalé.
+- **Conseils adaptés à chaque arnaque** et **boutons de signalement** : 33700 pour un SMS, Signal Spam pour un e-mail, Phishing Initiative pour un site, PHAROS, Info Escroqueries (0 805 805 817), Perceval pour un paiement par carte.
+- **Résultat plus clair** : verdict en une phrase, « Que faire maintenant ? » en premier, détails techniques repliés, exemples à essayer, guide des arnaques fréquentes et numéros utiles.
+- **Accessibilité** : mode sombre automatique, focus clavier et lecteur d’écran sur le verdict, cibles tactiles plus grandes.
+- **Lecture d’image (OCR) 100 % locale et hors ligne** : moteur et données françaises servis par le site, sans CDN tiers.
 
 ## Architecture de décision
 

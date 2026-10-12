@@ -24,7 +24,9 @@ type RegistryEntry={name:string;domain:string;aliases:string[];also?:string[]};
 const REGISTRY:RegistryEntry[]=[
   {name:"Service-Public.fr",domain:"service-public.fr",aliases:["service public","service-public"]},
   {name:"impots.gouv.fr",domain:"impots.gouv.fr",aliases:["impots","impôt","impôts","dgfip","finances publiques"],also:["finances.gouv.fr"]},
-  {name:"Ameli",domain:"ameli.fr",aliases:["ameli","assurance maladie","cpam"]},
+  {name:"Ameli",domain:"ameli.fr",aliases:["ameli","assurance maladie","cpam","carte vitale"]},
+  {name:"Mon Compte Formation",domain:"moncompteformation.gouv.fr",aliases:["mon compte formation","moncompteformation","cpf","compte personnel de formation"]},
+  {name:"Crit’Air",domain:"certificat-air.gouv.fr",aliases:["crit'air","crit’air","critair","vignette crit"]},
   {name:"La Poste",domain:"laposte.fr",aliases:["la poste"]},
   {name:"Chronopost",domain:"chronopost.fr",aliases:["chronopost"]},
   {name:"Colissimo",domain:"laposte.fr",aliases:["colissimo"]},
@@ -46,6 +48,8 @@ const REGISTRY:RegistryEntry[]=[
   {name:"Free",domain:"free.fr",aliases:["free"]},
   {name:"Bouygues Telecom",domain:"bouyguestelecom.fr",aliases:["bouygues telecom","bouygues"]},
   {name:"EDF",domain:"edf.fr",aliases:["edf"]},
+  {name:"Enedis",domain:"enedis.fr",aliases:["enedis","linky"]},
+  {name:"GRDF",domain:"grdf.fr",aliases:["grdf","gazpar"]},
   {name:"Engie",domain:"engie.com",aliases:["engie"],also:["engie.fr"]},
   {name:"TotalEnergies",domain:"totalenergies.fr",aliases:["totalenergies","total energies"],also:["totalenergies.com"]},
   {name:"BNP Paribas",domain:"mabanque.bnpparibas",aliases:["bnp paribas","bnp"],also:["bnpparibas"]},
@@ -65,11 +69,16 @@ const REGISTRY:RegistryEntry[]=[
   {name:"Meta",domain:"meta.com",aliases:["meta","facebook","instagram","whatsapp"],also:["facebook.com","instagram.com","whatsapp.com","messenger.com","fb.com"]},
   {name:"Leboncoin",domain:"leboncoin.fr",aliases:["leboncoin"]},
   {name:"Vinted",domain:"vinted.fr",aliases:["vinted"],also:["vinted.com"]},
+  {name:"Doctolib",domain:"doctolib.fr",aliases:["doctolib"]},
   // gouv.fr is reserved to French public bodies: any host under it is an official site.
   // Kept last and without alias so the more specific entries above win.
   {name:"Site officiel de l’administration française (gouv.fr)",domain:"gouv.fr",aliases:[]}
 ];
 
+// A request to hand over a code, including "pouvez-vous me le renvoyer" after receiving one "par erreur".
+export const CODE_REQUEST=/(?:communique|transmets|envoie|partage|donne|renvoie|renvoyer|renvoyez|dicte|dictez|lis-moi|lisez-moi).{0,50}(?:code|otp)|(?:code|otp).{0,80}(?:communique|transmets|envoie|partage|donne|renvoie|renvoyer|renvoyez|transférer|transférez|dicte|dictez|lire)/i;
+// A plain one-time-code notification ("Votre code est 123456"), with no link and no request to pass it on.
+const OTP_NOTICE=/\b(?:code|otp)\b[^.\n]{0,40}?(?:est|:)\s*(?:[a-z]-)?\d{3}[\s-]?\d{1,5}\b|\b\d{4,8}\b[^.\n]{0,10}est votre code/i;
 const SHORTENERS=/^(?:www\.)?(?:bit\.ly|tinyurl\.com|t\.co|cutt\.ly|shorturl\.at|ow\.ly|is\.gd|goo\.gl|rb\.gy|rebrand\.ly)$/i;
 const MULTI_LABEL_SUFFIXES=new Set(["co.uk","com.au","co.nz","co.jp","gouv.fr"]);
 const FREE_MAIL=/^(?:gmail\.com|googlemail\.com|outlook\.com|outlook\.fr|hotmail\.com|hotmail\.fr|live\.com|live\.fr|msn\.com|yahoo\.fr|yahoo\.com|icloud\.com|me\.com|proton\.me|protonmail\.com|gmx\.fr|gmx\.com|aol\.com|laposte\.net|wanadoo\.fr|orange\.fr|sfr\.fr|neuf\.fr|free\.fr|bbox\.fr|numericable\.fr)$/i;
@@ -112,6 +121,11 @@ function domainOf(u:string){try{return new URL(u).hostname.toLowerCase()}catch{r
 function domainsOf(e:RegistryEntry){return e.also?[e.domain,...e.also]:[e.domain]}
 function hostIn(host:string|null|undefined,domain:string){if(!host)return false;const h=host.toLowerCase().replace(/\.$/,"");return h===domain||h.endsWith('.'+domain)}
 function belongsTo(e:RegistryEntry,host:string|null|undefined){return domainsOf(e).some(d=>hostIn(host,d))}
+// "ups.com-livraison.info" or "impots.gouv.fr.paiement.com": an official name used as decoration in another domain.
+function embeddedOfficialDomain(host:string){
+  const h=host.toLowerCase();
+  return REGISTRY.flatMap(domainsOf).filter(d=>d.includes(".")).find(d=>!hostIn(h,d)&&new RegExp("(?:^|[.-])"+d.replace(/\./g,"\\.")+"(?:[.-]|$)").test(h))||null;
+}
 function officialFor(host:string){return REGISTRY.find(e=>belongsTo(e,host))?.name||null}
 function entryForName(name:string){const n=name.toLowerCase();return REGISTRY.find(e=>e.name.toLowerCase()===n)||null}
 function similarity(a:string,b:string){
@@ -136,8 +150,10 @@ function headersFrom(text:string){
   }
   return out;
 }
+// "Écris-moi sur WhatsApp" names a channel, not the organisation the message claims to come from.
+const CHANNEL_MENTION=/(?:sur|par|via|dans|en)\s+(?:whatsapp|telegram|signal|messenger|instagram|facebook|snapchat|tiktok)\b/giu;
 function claimedEntry(text:string){
-  const lower=text.toLowerCase();
+  const lower=text.toLowerCase().replace(CHANNEL_MENTION," ");
   const brandContext=/compte|espace client|facture|abonnement|support|sécurité|connexion|paiement|service|application|client|livraison|commande|banque|assurance/i.test(lower);
   const escapeRegex=(value:string)=>value.replace(/[.*+?^$()|[\]{}]/g,"\\$&");
   const scored: Array<{e:RegistryEntry;score:number}> = [];
@@ -154,27 +170,82 @@ function claimedEntry(text:string){
   return scored[0]?.e||null;
 }
 function scenario(text:string){
-  const l=text.toLowerCase();
-  if(/colis|livraison|chronopost|colissimo|la poste|mondial relay|dpd|ups|dhl|fedex|frais de livraison/.test(l))return "delivery_phishing";
+  const l=activeContent(text);
+  // The most specific scams come first: their advice differs most from generic phishing.
+  if(/(?:webcam|filmé|images? intimes?|sites? (?:pour adultes|porno))/.test(l)&&/(?:bitcoin|crypto|pay|€|euros?)/.test(l))return "sextortion";
+  if(/(?:virus|infecté|piraté|cheval de troie|logiciel malveillant)/.test(l)&&/(?:appelez|contactez|composez|support|assistance|technicien)/.test(l))return "tech_support";
+  if(/anydesk|teamviewer|rustdesk|quicksupport|prise en main à distance/.test(l))return "tech_support";
+  if(/(?:nouveau numéro|changé de numéro|cassé mon (?:téléphone|portable)|perdu mon (?:téléphone|portable)|enregistre (?:ce|mon) (?:nouveau )?numéro)/.test(l))return "family_impersonation";
+  if(/(?:placement|investi(?:r|ssez|ssement)|rendement|trading|crypto|forex)/.test(l)&&/(?:garanti|sans risque|%\s*(?:par|\/)\s*(?:mois|semaine|jour)|doubl)/.test(l))return "investment_scam";
+  if(/(?:héritage|succession|testament|loterie|tirage au sort|vous avez gagné|tu as gagné|gagnant)/.test(l))return "advance_fee";
+  if(/(?:recrut|emploi|mission|job|travail|tâches?)/.test(l)&&/(?:liker|likes?\b|noter|avis\b|à domicile|par jour|par heure)/.test(l))return "job_scam";
+  if(/(?:service (?:fraude|sécurité)|conseiller|opération suspecte|paiement suspect)/.test(l)&&/code|annuler|bloquer|sécuriser/.test(l))return "fake_advisor";
+  if(/nouveau rib|nouvel iban|changement de rib|changement d'iban|coordonnées bancaires ont changé/.test(l))return "transfer_fraud";
+  if(/colis|livraison|chronopost|colissimo|la poste|mondial relay|dpd|ups|dhl|fedex|frais de livraison|douane/.test(l))return "delivery_phishing";
   if(/banque|carte bancaire|virement|iban|rib|cvv|cryptogramme|sécurité bancaire|crédit/.test(l))return "banking_fraud";
   if(/remboursement|remboursé|rembourser|trop[- ]perçu|indemnité/.test(l))return "refund_scam";
   if(/mot de passe|connexion|identifiant|compte|double authentification|code de sécurité|otp/.test(l))return "account_takeover";
   if(/télécharger|download|apk|installer|pièce jointe|fichier/.test(l))return "malware_download";
-  if(/impôt|impots|amende|caf|ameli|france travail|urssaf|service[- ]public|administration|ants/.test(l))return "administrative_phishing";
+  if(/impôt|impots|amende|caf|ameli|france travail|urssaf|service[- ]public|administration|ants|cpf|crit.?air|vignette/.test(l))return "administrative_phishing";
   return "generic_phishing";
 }
-function recommendation(s:string){
-  const map:Record<string,[string,"now"|"today"|"normal",string,string[],string]> = {
-    banking_fraud:["Fraude bancaire","now","Ne réponds pas au message. Contacte ta banque uniquement via son application ou son numéro officiel.",["N’utilise pas le lien reçu.","Contacte ta banque par un canal officiel.","Conserve le message et les preuves."],"https://www.cybermalveillance.gouv.fr/"],
-    delivery_phishing:["Fausse livraison","today","Vérifie la livraison directement depuis le site ou l’application officielle du transporteur.",["N’utilise pas le lien reçu.","Vérifie le suivi depuis le site officiel.","Ne paie aucun frais depuis le message."],"https://17cyber.gouv.fr/"],
-    account_takeover:["Tentative de prise de compte","now","Ne communique aucun code. Accède directement au service concerné depuis son application ou son site officiel.",["Ne saisis aucun code ou mot de passe via le message.","Change le mot de passe depuis le site officiel si tu l’as communiqué.","Active la double authentification."],"https://17cyber.gouv.fr/"],
-    refund_scam:["Faux remboursement","today","Vérifie tout remboursement depuis ton compte officiel avant toute action.",["Ne fournis aucune donnée bancaire depuis le message.","Contacte l’organisme via ses coordonnées officielles.","Conserve les preuves."],"https://17cyber.gouv.fr/"],
-    malware_download:["Téléchargement suspect","now","N’ouvre pas le fichier et n’installe rien depuis ce message.",["N’ouvre pas le fichier.","Si une application a été installée, fais vérifier l’appareil.","Conserve l’URL et le message."],"https://17cyber.gouv.fr/"],
-    administrative_phishing:["Hameçonnage administratif","today","Vérifie la démarche directement sur le site officiel de l’administration.",["N’utilise pas le lien reçu.","Tape toi-même l’adresse officielle.","Ne communique aucun code ou mot de passe."],"https://www.cybermalveillance.gouv.fr/"],
-    generic_phishing:["Message suspect","today","Vérifie l’information indépendamment avant toute action.",["N’utilise pas le lien reçu si tu n’es pas certain de sa destination.","Contacte l’organisme par un canal officiel.","Conserve les preuves utiles."],"https://17cyber.gouv.fr/"]
-  };
-  const v=map[s]||map.generic_phishing;
-  return{scenario:s,label:v[0],urgency:v[1],summary:v[2],steps:v[3],preserveEvidence:true,resource:{label:"Obtenir de l’aide sur 17Cyber",url:v[4]}};
+
+type Link={label:string;url:string};
+const HELP={
+  cyber17:{label:"Obtenir de l’aide sur 17Cyber",url:"https://17cyber.gouv.fr/"},
+  cybermalveillance:{label:"Conseils de Cybermalveillance.gouv.fr",url:"https://www.cybermalveillance.gouv.fr/"}
+};
+export const REPORTING={
+  sms:{label:"Transférer le SMS au 33700",url:"https://www.33700.fr/"},
+  email:{label:"Signaler l’e-mail à Signal Spam",url:"https://www.signal-spam.fr/"},
+  site:{label:"Signaler le site à Phishing Initiative",url:"https://phishing-initiative.fr/contrib/"},
+  pharos:{label:"Signaler à PHAROS (police)",url:"https://www.internet-signalement.gouv.fr/"},
+  infoEscroqueries:{label:"Info Escroqueries : 0 805 805 817 (gratuit)",url:"tel:+33805805817"},
+  perceval:{label:"Déclarer un paiement frauduleux (Perceval)",url:"https://www.service-public.fr/particuliers/vosdroits/R46526"}
+};
+
+const SCENARIOS:Record<string,[string,"now"|"today"|"normal",string,string[],Link]> = {
+  banking_fraud:["Fraude bancaire","now","Ne réponds pas au message. Contacte ta banque uniquement via son application ou son numéro officiel.",["N’utilise pas le lien reçu.","Contacte ta banque par un canal officiel (application, numéro au dos de ta carte).","Conserve le message et les preuves."],HELP.cyber17],
+  fake_advisor:["Faux conseiller bancaire","now","Une vraie banque ne te demandera jamais un code reçu par SMS, ni de valider une opération pour « l’annuler ».",["Raccroche ou ne réponds plus, même si le numéro affiché semble être celui de ta banque.","Rappelle toi-même ta banque avec le numéro au dos de ta carte.","Ne communique aucun code, ne valide aucune opération dans ton application."],HELP.cyber17],
+  transfer_fraud:["Fraude au changement de RIB","now","Avant tout virement vers un nouveau RIB, confirme le changement par téléphone avec un contact que tu connais déjà.",["N’effectue pas le virement depuis ce message.","Appelle le fournisseur ou la personne avec un numéro que tu avais déjà (pas celui du message).","Si un virement est déjà parti, contacte ta banque immédiatement pour tenter un rappel des fonds."],HELP.cyber17],
+  delivery_phishing:["Faux colis","today","Vérifie la livraison directement depuis le site ou l’application officielle du transporteur.",["N’utilise pas le lien reçu.","Vérifie le suivi depuis le site officiel avec ton numéro de colis.","Ne paie aucun frais depuis le message."],HELP.cyber17],
+  account_takeover:["Tentative de vol de compte","now","Ne communique aucun code. Accède directement au service concerné depuis son application ou son site officiel.",["Ne saisis aucun code ou mot de passe via le message.","Change le mot de passe depuis le site officiel si tu l’as communiqué.","Active la double authentification."],HELP.cyber17],
+  refund_scam:["Faux remboursement","today","Vérifie tout remboursement depuis ton compte officiel avant toute action.",["Ne fournis aucune donnée bancaire depuis le message.","Contacte l’organisme via ses coordonnées officielles.","Conserve les preuves."],HELP.cyber17],
+  malware_download:["Téléchargement suspect","now","N’ouvre pas le fichier et n’installe rien depuis ce message.",["N’ouvre pas le fichier.","Si une application a été installée, fais vérifier l’appareil.","Conserve l’URL et le message."],HELP.cyber17],
+  administrative_phishing:["Fausse démarche administrative","today","Vérifie la démarche directement sur le site officiel de l’administration.",["N’utilise pas le lien reçu.","Tape toi-même l’adresse officielle (elle se termine par .gouv.fr pour l’État).","Ne communique aucun code ou mot de passe."],HELP.cybermalveillance],
+  family_impersonation:["Faux proche (« nouveau numéro »)","now","Avant toute aide, appelle ton proche sur son ancien numéro ou demande-lui un détail que seul lui connaît.",["N’envoie pas d’argent et ne paie aucune facture pour lui.","Appelle la personne sur le numéro que tu connais, ou contacte un autre membre de la famille.","Ne réponds pas aux relances qui insistent sur l’urgence."],HELP.cybermalveillance],
+  advance_fee:["Faux gain ou faux héritage","today","Un vrai gain ou héritage ne demande jamais de payer des frais à l’avance ni d’envoyer ses papiers à un inconnu.",["Ne réponds pas et ne paie aucun frais.","N’envoie ni pièce d’identité ni coordonnées bancaires.","Bloque l’expéditeur."],HELP.cybermalveillance],
+  investment_scam:["Faux placement","now","Aucun placement n’est à la fois garanti et très rentable. Vérifie toujours l’intermédiaire sur les listes noires de l’AMF.",["N’investis pas et ne transfère pas de cryptomonnaie.","Vérifie l’intermédiaire sur le site de l’AMF (amf-france.org).","Si tu as déjà versé de l’argent, méfie-toi des offres de « récupération des fonds » : c’est une seconde arnaque."],{label:"Listes noires de l’AMF",url:"https://www.amf-france.org/fr/espace-epargnants/proteger-son-epargne/listes-noires-et-mises-en-garde"}],
+  tech_support:["Faux support technique","now","Microsoft, Apple ou ta banque n’affichent jamais un numéro à appeler pour un virus. N’appelle pas et n’installe rien.",["N’appelle pas le numéro affiché et ne donne pas l’accès à ton appareil.","Ferme le navigateur (au besoin, redémarre l’appareil).","Si quelqu’un a pris la main sur l’appareil, déconnecte-le d’internet et change tes mots de passe depuis un autre appareil."],HELP.cyber17],
+  job_scam:["Fausse offre d’emploi","today","Un employeur sérieux ne recrute pas par WhatsApp pour « liker » des vidéos, et ne te demande jamais d’avancer de l’argent.",["Ne réponds pas et n’envoie aucun document d’identité.","Ne verse jamais d’argent pour « débloquer » des gains.","Bloque et signale le contact dans la messagerie."],HELP.cybermalveillance],
+  sextortion:["Chantage à la webcam","today","Ce type de message est envoyé en masse : dans l’immense majorité des cas, l’auteur n’a aucune vidéo. Ne paie pas.",["Ne paie pas et ne réponds pas.","Change le mot de passe cité dans le message s’il est réel, et active la double authentification.","Conserve le message et signale-le."],{label:"Que faire en cas de chantage (Cybermalveillance)",url:"https://www.cybermalveillance.gouv.fr/"}],
+  generic_phishing:["Message suspect","today","Vérifie l’information indépendamment avant toute action.",["N’utilise pas le lien reçu si tu n’es pas certain de sa destination.","Contacte l’organisme par un canal officiel.","Conserve les preuves utiles."],HELP.cyber17]
+};
+
+function channelOf(text:string){
+  if(/^\s*(?:from|de|expéditeur|objet|subject|to|à)\s*:/im.test(text)||/\b(?:e-?mail|courriel)\b/i.test(text))return "email";
+  return "sms";
+}
+
+function recommendation(s:string,text="",ctx:{verdict?:Verdict;hasUrl?:boolean}={}){
+  const v=SCENARIOS[s]||SCENARIOS.generic_phishing;
+  const reports:Link[]=[];
+  if(text){
+    reports.push(channelOf(text)==="email"?REPORTING.email:REPORTING.sms);
+    if(ctx.hasUrl)reports.push(REPORTING.site);
+    if(ctx.verdict==="stop"||s==="sextortion"||s==="investment_scam")reports.push(REPORTING.pharos);
+    if(ctx.verdict==="stop"||ctx.verdict==="caution")reports.push(REPORTING.infoEscroqueries);
+  }
+  return{scenario:s,label:v[0],urgency:v[1],summary:v[2],steps:v[3],preserveEvidence:true,channel:text?channelOf(text):undefined,reports,resource:v[4]};
+}
+
+export function recommendationFor(text:string,result:Pick<Analysis,"verdict"|"urls">){
+  return recommendation(scenario(text),text,{verdict:result.verdict,hasUrl:Boolean(result.urls?.length)});
+}
+
+export function actionsFor(verdict:Verdict,hasUrl:boolean):string[]{
+  const dontUse=hasUrl?"N’ouvre pas le lien reçu et ne réponds pas au message.":"Ne réponds pas au message et ne rappelle pas le numéro qu’il indique.";
+  return verdict==="stop"?[dontUse,"Ouvre toi-même le site ou l’application officielle, ou contacte la personne par un moyen que tu connais déjà.","Ne communique aucun code, mot de passe ou donnée bancaire, et ne paie rien."]:verdict==="caution"?[dontUse,"Vérifie l’organisme ou la personne par un canal indépendant.","En cas de doute, ne paie rien et ne communique aucun code."]:verdict==="check"?["Vérifie l’information depuis la source officielle avant d’agir."]:["Si le message est inattendu, vérifie quand même la source officielle.","Ne communique jamais un code ou un mot de passe simplement parce qu’un message le demande."];
 }
 
 export function analyzeText(input:string):Analysis{
@@ -202,6 +273,8 @@ export function analyzeText(input:string):Analysis{
         if(/[?&](redirect|url|target|dest|continue|next|return|redirect_uri)=/i.test(u.search))findings.push("Le lien contient un paramètre de redirection.");
         if(EXEC_EXT.test(u.pathname))findings.push("Le lien pointe vers un fichier ou paquet potentiellement exécutable.");
         if(u.hostname.split(".").length>=5)findings.push("Le domaine comporte un nombre inhabituellement élevé de sous-domaines.");
+        const disguise=embeddedOfficialDomain(host);
+        if(disguise)findings.push(`L’adresse commence comme « ${disguise} », mais le site réellement ouvert est « ${root} ».`);
       }catch{findings.push("Le lien n’a pas pu être interprété comme une URL valide.");}
     }
     return{url,host,rootDomain:root,official,findings};
@@ -209,8 +282,9 @@ export function analyzeText(input:string):Analysis{
 
   let risk=0;
   const finance=/paiement|payez|payer|virement|carte bancaire|iban|rib|frais|(?:\b\d{1,6}(?:[.,]\d{1,2})?\s*(?:€|eur)(?!\w))|cvv|cryptogramme/i.test(lower);
-  const urgency=/urgent|urgence|immédiat|immédiatement|dans\s+\d+\s*(?:min|minute|h|heure|jour)|dernière chance|dernier avertissement|suspendu|bloqué|sera clôturé|expir/i.test(lower);
-  const credentials=/mot de passe|identifiant|connexion|code de sécurité|code de vérification|otp|double authentification|numéro de carte|cvv|cryptogramme/i.test(lower);
+  const urgency=/urgent|urgence|immédiat|immédiatement|dans\s+\d+\s*(?:min|minute|h|heure|jour)|dernière chance|dernier avertissement|suspendu|bloqué|sera clôturé|expir|coupée?s?\b|coupure|majorée?s?\b|majoration|poursuites|huissier|sous peine/i.test(lower);
+  const otpNotice=OTP_NOTICE.test(lower)&&!foundUrls.length&&!CODE_REQUEST.test(lower)&&!/mot de passe|numéro de carte|cvv|cryptogramme|iban|virement|paiement/.test(lower);
+  const credentials=!otpNotice&&/mot de passe|identifiant|connexion|code de sécurité|code de vérification|otp|double authentification|numéro de carte|cvv|cryptogramme/i.test(lower);
   const cta=/cliquez|clique|connectez-vous|ouvrez le lien|confirmez|régularisez|payez|mettez à jour|vérifiez votre compte|consultez le lien/i.test(lower);
   const delivery=/colis|livraison|chronopost|colissimo|la poste|mondial relay|dpd|ups|dhl|fedex|frais de livraison/i.test(lower);
   const admin=/impôt|impots|amende|caf|ameli|france travail|urssaf|service[- ]public|administration|ants/i.test(lower);
@@ -223,14 +297,14 @@ export function analyzeText(input:string):Analysis{
   if(finance){reasons.push("Le contenu évoque un paiement, des frais ou des données bancaires.");risk+=2}
   if(urgency){reasons.push("Le contenu crée une pression temporelle ou une menace de blocage.");risk+=2}
   if(credentials){reasons.push("Le contenu demande ou évoque des informations d’authentification ou de sécurité.");risk+=2}
-  if(/(?:communique|transmets|envoie|partage|donne).{0,50}(?:code|otp)|(?:code|otp).{0,50}(?:communique|transmets|envoie|partage|donne)/i.test(lower)){reasons.push("Le message demande explicitement de transmettre un code de sécurité ou à usage unique.");risk+=4}
+  if(CODE_REQUEST.test(lower)){reasons.push("Le message demande explicitement de transmettre un code de sécurité ou à usage unique.");risk+=4}
   if(cta){reasons.push("Le contenu incite à effectuer une action depuis le message.");risk+=1}
   if(download){reasons.push("Le contenu évoque un téléchargement, une installation ou un fichier.");risk+=1}
   if(phone&&/sms|message|code|clique/i.test(lower)){reasons.push("Le contenu ressemble à une sollicitation reçue par SMS ou message.");}
 
   for(const f of new Set(urlData.flatMap(u=>u.findings))){
     reasons.push(f);
-    risk+=/représentation internationale|informations avant|port réseau|caractères invisibles|exécutable|nombre inhabituellement|URL valide/i.test(f)?3:/adresse IP/i.test(f)?2:/Lien raccourci|redirection/i.test(f)?2:2;
+    risk+=/site réellement ouvert/i.test(f)?4:/représentation internationale|informations avant|port réseau|caractères invisibles|exécutable|nombre inhabituellement|URL valide/i.test(f)?3:/adresse IP/i.test(f)?2:/Lien raccourci|redirection/i.test(f)?2:2;
   }
 
   const identity={claimedBrand:claimed?.name||null,officialDomain:claimed?.domain||null,sender:sender?.email||null,senderDomain:sender?.rootDomain||null,status:"unknown"};
@@ -246,7 +320,7 @@ export function analyzeText(input:string):Analysis{
       risk+=identity.status==="lookalike"?3:2;
     }
   }else if(claimed&&!sender){
-    if(foundUrls.length===0&&/urgent|clique|confirme|payez|mot de passe|code/i.test(lower)){reasons.push("L’organisme cité ne peut pas être confirmé par une adresse d’expéditeur.");risk+=1}
+    if(foundUrls.length===0&&!otpNotice&&/urgent|clique|confirme|payez|mot de passe|code/i.test(lower)){reasons.push("L’organisme cité ne peut pas être confirmé par une adresse d’expéditeur.");risk+=1}
   }
 
   if(sender&&FREE_MAIL.test(sender.rootDomain||"")&&claimed&&sender.rootDomain!==claimed.domain){
@@ -305,17 +379,31 @@ export function analyzeText(input:string):Analysis{
   const verdict:Verdict=risk>=6?"stop":risk>=3?"caution":risk>=1?"check":"ok";
   const title=verdict==="stop"?"N’agis pas tout de suite":verdict==="caution"?"Prudence":verdict==="check"?"À vérifier":"Aucun signal évident détecté";
   const summary=verdict==="stop"?"Plusieurs signaux forts sont compatibles avec une tentative de fraude.":verdict==="caution"?"Plusieurs éléments méritent une vérification indépendante.":verdict==="check"?"Un élément mérite une vérification avant d’agir.":"Aucun signal évident de fraude n’a été détecté dans le contenu fourni.";
-  const actions=verdict==="stop"?["N’utilise pas le lien reçu.","Ouvre toi-même le site ou l’application officielle.","Ne communique aucun code, mot de passe ou donnée bancaire."]:verdict==="caution"?["N’agis pas depuis le message.","Vérifie l’organisme par un canal indépendant.","En cas de doute, ne paie rien et ne communique aucun code."]:verdict==="check"?["Vérifie l’information depuis la source officielle avant d’agir."]:["Si le message est inattendu, vérifie quand même la source officielle.","Ne communique jamais un code ou un mot de passe simplement parce qu’un message le demande."];
+  const actions=actionsFor(verdict,foundUrls.length>0);
   const confidence=verdict==="stop"?"élevée":verdict==="ok"?"faible":"moyenne";
   const base:Analysis={verdict,title,summary,reasons:reasons.length?Array.from(new Set(reasons)):["Aucun signal de risque évident n’a été détecté."],actions,confidence,engine:"VÉRIF local",checkedAt,urls:urlData,identity:(sender||claimed)?identity:undefined,evidence:{risk,headers:{from:headers.from,replyTo:headers.replyTo,returnPath:headers.returnPath,receivedCount:headers.received},urlFindings:urlData.flatMap(u=>u.findings)}};
   if(verdict==="ok")return base;
-  const rec=recommendation(scenario(text));
-  const incidentReport=["VÉRIF — DOSSIER D’INCIDENT","","Date d’analyse : "+checkedAt,"Verdict : "+verdict.toUpperCase(),"Scénario : "+rec.label,"Score de risque : "+risk,"","RÉSUMÉ",summary,"","SIGNAUX",...base.reasons.map(r=>"- "+r),...(sender?["","EXPÉDITEUR",sender.email]:[]),...(foundUrls.length?["","LIENS DÉTECTÉS",...foundUrls]:[])].join("\n");
-  return {...base,recommendation:rec,incidentReport};
+  const rec=recommendationFor(text,{verdict,urls:urlData});
+  return {...base,recommendation:rec,incidentReport:incidentReport({...base,recommendation:rec})};
 }
 
-export function refreshIncident<T extends Analysis>(result:T):T{
-  if(result.verdict==='ok')return result;
-  const rec=result.recommendation||recommendation('generic_phishing');
-  return {...result,recommendation:rec,incidentReport:["VÉRIF — DOSSIER D’INCIDENT",`Date : ${result.checkedAt||new Date().toISOString()}`,`Verdict : ${result.verdict.toUpperCase()}`,`Score de risque : ${result.evidence?.risk??0}`,"",result.summary,"",...result.reasons.map(r=>'- '+r)].join('\n')};
+export function refreshIncident<T extends Analysis>(result:T,text?:string):T{
+  if(result.verdict==='ok')return {...result,recommendation:undefined,incidentReport:undefined};
+  const rec=text?recommendationFor(text,result):result.recommendation||recommendation('generic_phishing');
+  return {...result,recommendation:rec,incidentReport:incidentReport({...result,recommendation:rec})};
+}
+
+export function incidentReport(result:Analysis){
+  const checkedAt=result.checkedAt||new Date().toISOString();
+  return [
+    "VÉRIF — DOSSIER D’INCIDENT","",
+    "Date d’analyse : "+new Date(checkedAt).toLocaleString("fr-FR"),
+    "Verdict : "+result.verdict.toUpperCase(),
+    "Type d’arnaque probable : "+(result.recommendation?.label||"Non déterminé"),
+    "","RÉSUMÉ",result.summary,
+    "","SIGNAUX DÉTECTÉS",...result.reasons.map(r=>"- "+r),
+    ...(result.identity?.sender?["","EXPÉDITEUR",result.identity.sender]:[]),
+    ...(result.urls?.length?["","LIENS DÉTECTÉS (ne pas ouvrir)",...result.urls.map(u=>"- "+u.url.replace(/^http/i,"hxxp"))]:[]),
+    "","À CONSERVER","- Le message ou la capture d’origine","- L’adresse ou le numéro de l’expéditeur","- Les preuves de paiement éventuelles"
+  ].join("\n");
 }

@@ -56,6 +56,7 @@ export async function analyzeMessageWithAI(text,{research=true}={}){
  if(research){try{webResearch=await researchMessage(text,deterministic);enriched=applyResearchEvidence(deterministic,webResearch)}catch{webResearch=null}}
  const ai=await getAiSecondOpinion(text,enriched,webResearch);
  const merged=mergeAiOpinion(enriched,ai);
- const recommendation=buildRecommendation(text,merged);
+ // The shared engine already tailors advice to the scam type (faux proche, faux conseiller…); keep it when present.
+ const recommendation=(merged.verdict!=="ok"&&merged.recommendation)||buildRecommendation(text,merged);
  return {...merged,recommendation,incidentReport:buildIncidentReport(text,{...merged,recommendation}),research:webResearch,engine:ai?`rules+web+${ai.model}`:(webResearch?"rules+web":merged.engine)};
 }

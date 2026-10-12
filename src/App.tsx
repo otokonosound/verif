@@ -8,12 +8,30 @@ import { decodeQrFromImage, decodeQrFromImageData } from "./lib/qr";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { extractPdfTextFallback, inspectExecutable } from "./lib/file-inspection";
 
-const verdictMeta: Record<Verdict, { icon: any; label: string; className: string }> = {
-  ok: { icon: CheckCircle2, label: "OK", className: "ok" },
-  check: { icon: AlertTriangle, label: "À VÉRIFIER", className: "check" },
-  caution: { icon: ShieldAlert, label: "PRUDENCE", className: "caution" },
-  stop: { icon: ShieldAlert, label: "STOP", className: "stop" }
+const verdictMeta: Record<Verdict, { icon: any; label: string; className: string; hint: string }> = {
+  ok: { icon: CheckCircle2, label: "OK", className: "ok", hint: "Rien d’anormal n’a été repéré. Si le message est inattendu, vérifie quand même auprès de l’organisme par ses canaux habituels." },
+  check: { icon: AlertTriangle, label: "À VÉRIFIER", className: "check", hint: "Un détail mérite d’être vérifié avant d’agir. Ne clique pas tant que tu n’es pas sûr de la source." },
+  caution: { icon: ShieldAlert, label: "PRUDENCE", className: "caution", hint: "Plusieurs signes d’arnaque. Ne clique pas, ne réponds pas et ne paie rien avant d’avoir vérifié par toi-même." },
+  stop: { icon: ShieldAlert, label: "STOP", className: "stop", hint: "Très probablement une arnaque. Ne clique pas, ne réponds pas, ne donne aucun code et ne paie rien." }
 };
+
+const EXAMPLES: Array<{ label: string; text: string }> = [
+  { label: "Faux colis", text: "Colissimo : votre colis est en attente. Des frais de 1,99 € sont à régler sous 24h, sinon il sera retourné : https://colissimo-suivi-livraison.com/fr" },
+  { label: "Faux proche", text: "Coucou maman, c’est moi, j’ai cassé mon téléphone, voici mon nouveau numéro. Tu peux me faire un virement de 450 € aujourd’hui ? C’est urgent, je t’explique après." },
+  { label: "Faux conseiller", text: "Bonjour, ici le service fraude de votre banque. Une opération suspecte de 980 € est en cours. Pour l’annuler, communiquez-moi le code que vous allez recevoir par SMS." },
+  { label: "Message normal", text: "Rappel : votre rendez-vous chez le Dr Martin est confirmé demain à 14h30. Pour annuler, appelez le cabinet." }
+];
+
+const COMMON_SCAMS: Array<[string, string]> = [
+  ["Faux colis", "Un SMS réclame quelques euros de « frais de livraison ». Les transporteurs ne demandent jamais de payer par un lien reçu par SMS."],
+  ["Faux conseiller bancaire", "Un appel ou un SMS « du service fraude » demande un code ou de valider une opération pour « l’annuler ». Une banque ne le fait jamais."],
+  ["Faux proche", "« Maman, j’ai changé de numéro » puis une demande d’argent urgente. Appelle toujours la personne sur son ancien numéro."],
+  ["Fausse administration", "Amende, CPF, carte Vitale, Crit’Air, impôts : les sites de l’État se terminent par .gouv.fr, et les vrais services n’envoient pas de lien de paiement par SMS."],
+  ["Faux support technique", "Une page bloque l’écran et affiche un numéro à appeler. N’appelle pas : ferme le navigateur ou redémarre."],
+  ["Faux placement", "Rendement « garanti » de plusieurs % par mois, souvent en crypto. Vérifie l’intermédiaire sur les listes noires de l’AMF."],
+  ["Fausse offre d’emploi", "Gagner de l’argent en « likant » des vidéos via WhatsApp ou Telegram. On finit toujours par te demander de payer."],
+  ["Chantage à la webcam", "Un e-mail affirme t’avoir filmé et exige des bitcoins. C’est du bluff envoyé en masse : ne paie pas."]
+];
 
 type ServerAnalysis = IntelligentAnalysis & {
   intent?: string;
@@ -23,6 +41,7 @@ type Incident = "none" | "clicked" | "info" | "paid";
 type Page = "home" | "help" | "privacy";
 
 const HISTORY_KEY = "verif-history";
+const QR_NOTICE = "Contenu lu dans le QR code. Vérifie que l’adresse correspond bien à l’organisme attendu : de faux QR codes sont collés sur des horodateurs, des bornes ou des courriers.";
 const HISTORY_SIZE = 10;
 const HISTORY_ENTRY_MAX = 4000;
 const MAX_INPUT = 50000;
@@ -54,10 +73,15 @@ function historyLabel(text: string) {
 }
 
 function incidentAdvice(kind: "clicked" | "info" | "paid", scenario?: string) {
-  if (kind === "paid") return scenario === "banking_fraud" || scenario === "refund_scam"
-    ? ["Contacte immédiatement ta banque via son application ou ses coordonnées officielles.", "Demande les mesures adaptées à l'opération et surveille les opérations suivantes.", "Conserve les preuves du paiement et du message."]
-    : ["Contacte immédiatement le service de paiement ou ta banque via un canal officiel.", "Conserve les preuves du paiement, du message et de l'URL.", "Si le paiement est frauduleux, demande les démarches adaptées à ta situation."];
-  if (kind === "info") return scenario === "account_takeover"
+  if (kind === "paid") return [
+    "Appelle tout de suite ta banque (numéro au dos de ta carte ou dans son application) : un virement ou un paiement peut parfois être bloqué s’il est signalé très vite.",
+    "Si tu as donné ou utilisé ta carte bancaire, fais-la mettre en opposition (ta banque, ou le 0 892 705 705).",
+    "Porte plainte au commissariat, à la gendarmerie ou en ligne ; garde les preuves du paiement, du message et de l’adresse du site.",
+    ...(scenario === "investment_scam" ? ["Méfie-toi des offres de « récupération des fonds » qui suivront : c’est une seconde arnaque."] : [])
+  ];
+  if (kind === "info") return scenario === "fake_advisor"
+    ? ["Appelle immédiatement ta banque avec le numéro au dos de ta carte et fais bloquer ta carte et ton accès en ligne.", "Ne valide aucune opération dans ton application bancaire.", "Change le mot de passe de ta banque en ligne depuis l’application officielle."]
+    : scenario === "account_takeover"
     ? ["Change immédiatement le mot de passe depuis le site ou l'application officielle.", "Change-le aussi sur les autres services où il était réutilisé.", "Active la double authentification et vérifie les sessions/appareils connectés."]
     : scenario === "banking_fraud" || scenario === "refund_scam"
       ? ["Si tu as transmis des données bancaires, contacte immédiatement ta banque via son canal officiel.", "Si tu as transmis un mot de passe, change-le depuis le site officiel.", "Conserve toutes les preuves."]
@@ -148,6 +172,8 @@ export function App() {
   const [ocrProgress, setOcrProgress] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const resultHeadingRef = useRef<HTMLHeadingElement>(null);
+  const hadResultRef = useRef(false);
 
   const runRef = useRef(0);
   const intakeRef = useRef(false);
@@ -202,21 +228,16 @@ export function App() {
     const local = analyzeText(clean);
     try {
       setAnalysis({ ...local, engine: "VÉRIF local" });
-      setNotice("Analyse locale terminée. VÉRIF Intelligence vérifie maintenant les preuves techniques, l’IA embarquée et les données web disponibles…");
       const enhanced = await analyzeIntelligently(clean, local, { web: options.web });
       if (run !== runRef.current) return;
       let finalAnalysis = enhanced;
       if (options.remote && apiBase()) {
-        setNotice("Analyse locale terminée. Le moteur distant vérifie maintenant les renseignements web et le second avis IA…");
         const remote = await fetchRemoteIntelligence(clean);
         if (remote) finalAnalysis = mergeRemoteIntelligence(enhanced, remote);
       }
       if (run !== runRef.current) return;
+      // The engine status (AI, web research) is listed under "Détails techniques" rather than above the verdict.
       setAnalysis(finalAnalysis);
-      const ai = finalAnalysis.intelligence?.ai.used ? "IA locale active" : "IA locale indisponible sur cet appareil";
-      const web = finalAnalysis.intelligence?.web.available ? "recherche web active" : options.web ? "recherche web sans résultat exploitable" : "recherche web désactivée";
-      const remoteActive = (finalAnalysis.intelligence as any)?.remote?.used ? " · moteur distant actif" : "";
-      setNotice(`VÉRIF Intelligence : ${ai} · ${web}${remoteActive}.`);
     } catch {
       if (run !== runRef.current) return;
       setAnalysis(local);
@@ -298,7 +319,7 @@ export function App() {
       try {
         const qr = await decodeQrFromImage(file);
         if (!current()) return;
-        if (qr) { await runVerify(qr); return; }
+        if (qr) { await runVerify(qr); if (current()) setNotice(QR_NOTICE); return; }
       } catch {}
     }
 
@@ -437,6 +458,13 @@ export function App() {
     } else setNotice("Copie impossible sur cet appareil. Ouvre « Voir le contenu » et copie le texte manuellement.");
   }
 
+  // Move keyboard and screen-reader focus to the verdict when a result appears.
+  useEffect(() => {
+    const has = Boolean(analysis) && page === "home";
+    if (has && !hadResultRef.current) resultHeadingRef.current?.focus();
+    hadResultRef.current = has;
+  }, [analysis, page]);
+
   // Release the camera when the app is closed.
   useEffect(() => stopStream, []);
 
@@ -476,6 +504,7 @@ export function App() {
             active = false;
             closeCamera();
             await verify(value);
+            setNotice(QR_NOTICE);
             return;
           }
         } catch {}
@@ -574,6 +603,29 @@ export function App() {
                   <div className="infoCard"><b>3. Agis</b><p>Tu obtiens des actions concrètes et, si nécessaire, les bons canaux de signalement.</p></div>
                 </div>
                 <div className="panel"><h3>Important</h3><p>Un résultat OK signifie seulement qu’aucun signal évident n’a été trouvé. Vérifie toujours par le site ou l’application officielle si le message est inattendu.</p></div>
+                <h2 className="infoTitle">Les arnaques les plus fréquentes</h2>
+                <div className="infoGrid scams">
+                  {COMMON_SCAMS.map(([title, text]) => <div className="infoCard" key={title}><b>{title}</b><p>{text}</p></div>)}
+                </div>
+                <h2 className="infoTitle">Trois réflexes qui protègent de presque tout</h2>
+                <div className="panel">
+                  <ol>
+                    <li>Ne clique jamais sur un lien reçu pour payer ou te connecter : ouvre toi-même l’application ou tape l’adresse du site.</li>
+                    <li>Ne donne jamais un code reçu par SMS, même à quelqu’un qui se présente comme ta banque, la police ou un proche.</li>
+                    <li>Face à l’urgence (« dernier délai », « compte bloqué », « c’est urgent »), prends le temps de rappeler l’organisme ou la personne par un numéro que tu connais déjà.</li>
+                  </ol>
+                </div>
+                <h2 className="infoTitle">Numéros et sites utiles</h2>
+                <div className="panel usefulLinks">
+                  <ul>
+                    <li><b>33700</b> : transfère gratuitement un SMS ou signale un appel indésirable sur <a href="https://www.33700.fr/" target="_blank" rel="noreferrer">33700.fr</a>.</li>
+                    <li><b>Info Escroqueries</b> : <a href="tel:+33805805817">0 805 805 817</a> (appel gratuit), pour être conseillé après une arnaque.</li>
+                    <li><b>Opposition carte bancaire</b> : <a href="tel:+33892705705">0 892 705 705</a>, ou le numéro de ta banque.</li>
+                    <li><b>17Cyber</b> : diagnostic et assistance en ligne sur <a href="https://17cyber.gouv.fr/" target="_blank" rel="noreferrer">17cyber.gouv.fr</a>.</li>
+                    <li><b>Perceval</b> : <a href="https://www.service-public.fr/particuliers/vosdroits/R46526" target="_blank" rel="noreferrer">déclarer un paiement frauduleux</a> par carte bancaire.</li>
+                    <li><b>Signal Spam</b> et <b>Phishing Initiative</b> : signaler un e-mail (<a href="https://www.signal-spam.fr/" target="_blank" rel="noreferrer">signal-spam.fr</a>) ou un site frauduleux (<a href="https://phishing-initiative.fr/contrib/" target="_blank" rel="noreferrer">phishing-initiative.fr</a>).</li>
+                  </ul>
+                </div>
               </>
             ) : (
               <>
@@ -583,7 +635,7 @@ export function App() {
                   <p>VÉRIF commence toujours par une analyse locale. Les fichiers importés ne sont jamais exécutés.</p>
                   <p>Quand la recherche web est disponible, seuls les domaines ou URL utiles à la vérification peuvent être interrogés auprès de services DNS/RDAP ou par l’extension. Si un moteur serveur optionnel est configuré, le contenu peut aussi lui être transmis pour un second avis IA ; l’interface l’indique explicitement.</p>
                   <p>L’IA embarquée, lorsqu’elle est prise en charge par le navigateur, fonctionne sur l’appareil. Elle n’est jamais autorisée à abaisser seule un risque établi par des preuves techniques.</p>
-                  <p>La lecture du texte d’une image télécharge une fois le moteur de reconnaissance et ses données de langue depuis un service public ; l’image elle-même reste sur ton appareil.</p>
+                  <p>La lecture du texte d’une image se fait sur ton appareil : le moteur de reconnaissance est téléchargé une seule fois depuis le site VÉRIF, puis fonctionne même hors connexion. L’image n’est envoyée nulle part.</p>
                   <p>Les dix dernières vérifications sont conservées uniquement dans ce navigateur pour pouvoir les relancer ; le bouton Effacer de l’historique les supprime.</p>
                   <p>Évite malgré tout de soumettre des mots de passe, codes à usage unique ou données bancaires complètes. Le dossier d’incident n’est copié ou partagé que lorsque tu déclenches volontairement cette action.</p>
                 </div>
@@ -626,6 +678,10 @@ export function App() {
                 <button disabled={!input.trim() || loading} onClick={() => verify()} className="primary">{loading ? <><LoaderCircle className="spin" size={18} /> ANALYSE…</> : "VÉRIFIER"}</button>
               </div>
               {noticeBox}
+              <div className="examples">
+                <span>Essayer avec un exemple :</span>
+                {EXAMPLES.map(example => <button type="button" key={example.label} className="exampleChip" onClick={() => void verify(example.text)}>{example.label}</button>)}
+              </div>
               <div className="trust">
                 <span><ShieldCheck size={16} /> Analyse locale prioritaire</span>
                 <span><ShieldCheck size={16} /> Recherche web explicable</span>
@@ -644,106 +700,122 @@ export function App() {
           </>
         ) : (
           <section className="result">
-            <button className="back" onClick={() => reset(false)}><ChevronLeft size={20} />Nouvelle vérification</button>
+            <button type="button" className="back" onClick={() => reset(false)}><ChevronLeft size={20} />Nouvelle vérification</button>
             {noticeBox}
             <div className={`resultCard ${meta.className}`}>
               <div className="resultTopline"><span>RÉSULTAT DE LA VÉRIFICATION</span><span>{analysis.checkedAt ? new Date(analysis.checkedAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : ""}</span></div>
               <div className="resultHead">
-                <div className="stateIcon"><Icon size={30} /></div>
-                <div><div className="stateLabel">{meta.label}</div><h2>{analysis.title}</h2><p>{analysis.summary}</p></div>
-              </div>
-              <div className="grid2">
-                <div className="panel"><h3>Pourquoi ?</h3><ul>{analysis.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>
-                <div className="panel"><h3>Que faire ?</h3><ul>{analysis.actions.map((action, index) => <li key={index}>{action}</li>)}</ul></div>
-              </div>
-              {analysis.identity && (
-                <div className="panel spaced">
-                  <h3>Identité</h3>
-                  <p><b>{analysis.identity.claimedBrand || "Organisme non identifié"}</b>{analysis.identity.officialDomain && <> · domaine attendu : <b>{analysis.identity.officialDomain}</b></>}</p>
-                  {analysis.identity.sender && <p>Expéditeur réel détecté : <b>{analysis.identity.sender}</b> · statut : <b>{({ official: "domaine officiel", lookalike: "domaine ressemblant", mismatch: "domaine différent", unknown: "non vérifiable" } as Record<string, string>)[analysis.identity.status] || analysis.identity.status}</b></p>}
+                <div className="stateIcon" aria-hidden="true"><Icon size={30} /></div>
+                <div>
+                  <div className="stateLabel">{meta.label}</div>
+                  <h2 ref={resultHeadingRef} tabIndex={-1}>{analysis.title}</h2>
+                  <p className="verdictHint">{meta.hint}</p>
+                  <p>{analysis.summary}</p>
                 </div>
-              )}
-              {analysis.urls && analysis.urls.length > 0 && (
-                <div className="panel links">
-                  <h3>Liens détectés</h3>
-                  {analysis.urls.map((link, index) => <div key={index}><b>{link.host || "Lien invalide"}</b>{link.official && <span> · domaine officiel reconnu : {link.official}</span>}{link.findings.map((finding, j) => <div key={j}>{finding}</div>)}</div>)}
-                </div>
-              )}
-              <div className="panel spaced">
-                <h3>Preuves techniques</h3>
-                <p>Score de risque : <b>{analysis.evidence?.risk ?? "non calculé"}</b></p>
-                {analysis.evidence?.headers?.replyTo && <p>Reply-To : <b>{analysis.evidence.headers.replyTo}</b></p>}
               </div>
-              {analysis.intelligence && (
-                <div className="panel intelligencePanel">
-                  <h3>VÉRIF Intelligence</h3>
-                  <p><b>Mode :</b> {analysis.intelligence.mode.split("+").join(" + ")}</p>
-                  <p><b>IA embarquée :</b> {analysis.intelligence.ai.used ? "active et utilisée" : analysis.intelligence.ai.available ? "disponible mais sans avis exploitable" : "non disponible sur ce navigateur/appareil"}</p>
-                  <p><b>Recherche web :</b> {analysis.intelligence.web.available ? `active${analysis.intelligence.web.provider ? ` · ${analysis.intelligence.web.provider}` : ""}` : "aucune donnée externe exploitable"}</p>
-                  {analysis.intelligence.mailAuth && (analysis.intelligence.mailAuth.spf || analysis.intelligence.mailAuth.dkim || analysis.intelligence.mailAuth.dmarc) && <p><b>Authentification e-mail :</b> SPF {analysis.intelligence.mailAuth.spf || "?"} · DKIM {analysis.intelligence.mailAuth.dkim || "?"} · DMARC {analysis.intelligence.mailAuth.dmarc || "?"}</p>}
-                  {analysis.intelligence.web.searchResults?.map((result, index) => <p key={index}><a href={result.url} target="_blank" rel="noreferrer">{result.title}</a>{result.snippet && <span> — {result.snippet}</span>}</p>)}
-                  {analysis.intelligence.web.items.length > 0 && (
-                    <details>
-                      <summary>Voir les recherches web</summary>
-                      {analysis.intelligence.web.items.map((item, index) => (
-                        <div key={index} className="intelItem">
-                          <b>{item.host || item.url}</b>
-                          {item.finalHost && item.finalHost !== item.host && <div>Destination finale : {item.finalHost}</div>}
-                          {item.rdap?.ageDays != null && <div>Âge du domaine : {item.rdap.ageDays} jours</div>}
-                          {item.dns && <div>DNS : {item.dns.resolved ? "résolu" : "non résolu"}</div>}
-                          {item.findings?.map((finding, j) => <div key={j}>{finding}</div>)}
-                        </div>
-                      ))}
-                    </details>
-                  )}
-                </div>
-              )}
-              <div className="resultActions"><button className="secondary" onClick={shareResult}><Share2 size={17} /> PARTAGER LE RÉSULTAT</button></div>
-              <div className="confidence"><span>Confiance : <strong>{analysis.confidence}</strong></span><span>Moteur : <strong>{analysis.engine || "local"}</strong></span></div>
+              {loading && <p className="refining" role="status"><LoaderCircle className="spin" size={15} /> Analyse complémentaire en cours…</p>}
+              <div className="panel todo">
+                <h3>Que faire maintenant ?</h3>
+                <ul>{analysis.actions.map((action, index) => <li key={index}>{action}</li>)}</ul>
+              </div>
               {analysis.recommendation && (
                 <div className={"panel recommendation urgency-" + analysis.recommendation.urgency}>
-                  <h3>Réaction recommandée</h3>
-                  <p><b>{analysis.recommendation.label}</b> · {analysis.recommendation.urgency === "now" ? "À faire maintenant" : analysis.recommendation.urgency === "today" ? "À faire aujourd’hui" : "À faire avant d’agir"}</p>
+                  <h3>{analysis.recommendation.label}</h3>
+                  <p className="urgency">{analysis.recommendation.urgency === "now" ? "À faire maintenant" : analysis.recommendation.urgency === "today" ? "À faire aujourd’hui" : "À faire avant d’agir"}</p>
                   <p>{analysis.recommendation.summary}</p>
                   <ol>{analysis.recommendation.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
-                  {analysis.recommendation.preserveEvidence && <p><b>À conserver :</b> message, URL, captures et preuves utiles.</p>}
                   {Boolean(analysis.recommendation.reports?.length) && (
                     <div className="reporting">
-                      <p><b>Signaler</b></p>
-                      <div className="tools">{analysis.recommendation.reports?.map((report, index) => <a className="tool" key={index} href={report.url} target="_blank" rel="noreferrer">{report.label}</a>)}</div>
+                      <p><b>Signaler</b> (aide les autres à ne pas se faire piéger)</p>
+                      <div className="tools">{analysis.recommendation.reports?.map((report, index) => <a className="tool" key={index} href={report.url} target={report.url.startsWith("tel:") ? undefined : "_blank"} rel="noreferrer">{report.label}</a>)}</div>
                     </div>
                   )}
-                  <a href={analysis.recommendation.resource?.url || "https://17cyber.gouv.fr/"} target="_blank" rel="noreferrer">{analysis.recommendation.resource?.label || "Obtenir de l'aide sur 17Cyber"}</a>
+                  <a className="resource" href={analysis.recommendation.resource?.url || "https://17cyber.gouv.fr/"} target="_blank" rel="noreferrer">{analysis.recommendation.resource?.label || "Obtenir de l'aide sur 17Cyber"}</a>
+                </div>
+              )}
+              <div className="panel reasons">
+                <h3>Pourquoi ce résultat ?</h3>
+                <ul>{analysis.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul>
+              </div>
+              {analysis.verdict !== "ok" && (
+                <div className="panel incident">
+                  <h3>Tu as déjà réagi ?</h3>
+                  <p>Indique ce qui s’est passé pour obtenir les bons réflexes.</p>
+                  <div className="tools">
+                    <button type="button" className="tool" aria-pressed={incident === "clicked"} onClick={() => setIncident("clicked")}>J'ai cliqué</button>
+                    <button type="button" className="tool" aria-pressed={incident === "info"} onClick={() => setIncident("info")}>J'ai donné des infos</button>
+                    <button type="button" className="tool" aria-pressed={incident === "paid"} onClick={() => setIncident("paid")}>J'ai payé</button>
+                    <button type="button" className="tool" aria-pressed={incident === "none"} onClick={() => setIncident("none")}>Je n'ai rien fait</button>
+                  </div>
+                  {incident !== "none" && (
+                    <div className="incidentAdvice" role="status">
+                      <b>{incident === "clicked" ? "Tu as cliqué" : incident === "info" ? "Tu as transmis des informations" : "Tu as effectué un paiement"}</b>
+                      <ul>{incidentAdvice(incident, analysis.recommendation?.scenario).map((step, index) => <li key={index}>{step}</li>)}</ul>
+                      <div className="tools helpLinks">
+                        {incident === "paid" && <a className="tool" href="https://www.service-public.fr/particuliers/vosdroits/R46526" target="_blank" rel="noreferrer">Déclarer un paiement frauduleux (Perceval)</a>}
+                        <a className="tool" href="tel:+33805805817">Info Escroqueries : 0 805 805 817 (gratuit)</a>
+                        <a className="tool" href="https://17cyber.gouv.fr/" target="_blank" rel="noreferrer">Diagnostic gratuit sur 17Cyber</a>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {analysis.incidentReport && (
                 <div className="panel incidentReport">
                   <h3>Dossier d’incident</h3>
-                  <p>Résumé prêt à copier pour un signalement ou pour demander de l’aide.</p>
-                  <button className="secondary" onClick={copyIncidentReport}><ClipboardCheck size={18} /> {copied ? "DOSSIER COPIÉ" : "COPIER LE DOSSIER"}</button>
+                  <p>Résumé prêt à copier pour un signalement, une plainte ou pour demander de l’aide à un proche.</p>
+                  <button type="button" className="secondary" onClick={copyIncidentReport}><ClipboardCheck size={18} /> {copied ? "DOSSIER COPIÉ" : "COPIER LE DOSSIER"}</button>
                   <details><summary>Voir le contenu</summary><pre>{analysis.incidentReport}</pre></details>
                 </div>
               )}
-              {analysis.verdict !== "ok" && (
-                <div className="panel incident">
-                  <h3>Ta situation</h3>
-                  <p>Dis-moi ce qui s'est déjà passé pour obtenir les bons réflexes.</p>
-                  <div className="tools">
-                    <button className="tool" aria-pressed={incident === "clicked"} onClick={() => setIncident("clicked")}>J'ai cliqué</button>
-                    <button className="tool" aria-pressed={incident === "info"} onClick={() => setIncident("info")}>J'ai donné des infos</button>
-                    <button className="tool" aria-pressed={incident === "paid"} onClick={() => setIncident("paid")}>J'ai payé</button>
-                    <button className="tool" aria-pressed={incident === "none"} onClick={() => setIncident("none")}>Je n'ai rien fait</button>
+              <div className="resultActions"><button type="button" className="secondary" onClick={shareResult}><Share2 size={17} /> PARTAGER LE RÉSULTAT</button></div>
+              <details className="technical">
+                <summary>Détails techniques</summary>
+                {analysis.identity && (
+                  <div className="panel spaced">
+                    <h3>Identité</h3>
+                    <p><b>{analysis.identity.claimedBrand || "Organisme non identifié"}</b>{analysis.identity.officialDomain && <> · domaine attendu : <b>{analysis.identity.officialDomain}</b></>}</p>
+                    {analysis.identity.sender && <p>Expéditeur réel détecté : <b>{analysis.identity.sender}</b> · statut : <b>{({ official: "domaine officiel", lookalike: "domaine ressemblant", mismatch: "domaine différent", unknown: "non vérifiable" } as Record<string, string>)[analysis.identity.status] || analysis.identity.status}</b></p>}
                   </div>
-                  {incident !== "none" && (
-                    <div className="incidentAdvice">
-                      <b>{incident === "clicked" ? "Tu as cliqué" : incident === "info" ? "Tu as transmis des informations" : "Tu as effectué un paiement"}</b>
-                      <ul>{incidentAdvice(incident, analysis.recommendation?.scenario).map((step, index) => <li key={index}>{step}</li>)}</ul>
-                      <p><a href="https://17cyber.gouv.fr/" target="_blank" rel="noreferrer">Obtenir un diagnostic gratuit sur 17Cyber</a></p>
-                    </div>
-                  )}
+                )}
+                {analysis.urls && analysis.urls.length > 0 && (
+                  <div className="panel links">
+                    <h3>Liens détectés</h3>
+                    {analysis.urls.map((link, index) => <div key={index}><b>{link.host || "Lien invalide"}</b>{link.official && <span> · domaine officiel reconnu : {link.official}</span>}{link.findings.map((finding, j) => <div key={j}>{finding}</div>)}</div>)}
+                  </div>
+                )}
+                <div className="panel spaced">
+                  <h3>Preuves techniques</h3>
+                  <p>Score de risque : <b>{analysis.evidence?.risk ?? "non calculé"}</b></p>
+                  {analysis.evidence?.headers?.replyTo && <p>Reply-To : <b>{analysis.evidence.headers.replyTo}</b></p>}
                 </div>
-              )}
-              {analysis.verdict !== "ok" && <button className="secondary" onClick={() => reset(true)}>VÉRIFIER AUTREMENT</button>}
+                {analysis.intelligence && (
+                  <div className="panel intelligencePanel">
+                    <h3>VÉRIF Intelligence</h3>
+                    <p><b>Mode :</b> {analysis.intelligence.mode.split("+").join(" + ")}</p>
+                    <p><b>IA embarquée :</b> {analysis.intelligence.ai.used ? "active et utilisée" : analysis.intelligence.ai.available ? "disponible mais sans avis exploitable" : "non disponible sur ce navigateur/appareil"}</p>
+                    <p><b>Recherche web :</b> {analysis.intelligence.web.available ? `active${analysis.intelligence.web.provider ? ` · ${analysis.intelligence.web.provider}` : ""}` : "aucune donnée externe exploitable"}</p>
+                    {analysis.intelligence.mailAuth && (analysis.intelligence.mailAuth.spf || analysis.intelligence.mailAuth.dkim || analysis.intelligence.mailAuth.dmarc) && <p><b>Authentification e-mail :</b> SPF {analysis.intelligence.mailAuth.spf || "?"} · DKIM {analysis.intelligence.mailAuth.dkim || "?"} · DMARC {analysis.intelligence.mailAuth.dmarc || "?"}</p>}
+                    {analysis.intelligence.web.searchResults?.map((result, index) => <p key={index}><a href={result.url} target="_blank" rel="noreferrer">{result.title}</a>{result.snippet && <span> — {result.snippet}</span>}</p>)}
+                    {analysis.intelligence.web.items.length > 0 && (
+                      <details>
+                        <summary>Voir les recherches web</summary>
+                        {analysis.intelligence.web.items.map((item, index) => (
+                          <div key={index} className="intelItem">
+                            <b>{item.host || item.url}</b>
+                            {item.finalHost && item.finalHost !== item.host && <div>Destination finale : {item.finalHost}</div>}
+                            {item.rdap?.ageDays != null && <div>Âge du domaine : {item.rdap.ageDays} jours</div>}
+                            {item.dns && <div>DNS : {item.dns.resolved ? "résolu" : "non résolu"}</div>}
+                            {item.findings?.map((finding, j) => <div key={j}>{finding}</div>)}
+                          </div>
+                        ))}
+                      </details>
+                    )}
+                  </div>
+                )}
+                <div className="confidence"><span>Confiance : <strong>{analysis.confidence}</strong></span><span>Moteur : <strong>{analysis.engine || "local"}</strong></span></div>
+              </details>
+              {analysis.verdict !== "ok" && <button type="button" className="secondary" onClick={() => reset(true)}>VÉRIFIER UN AUTRE MESSAGE</button>}
             </div>
             {input.trim() && (
               <div className="card inputAgain">
@@ -751,7 +823,7 @@ export function App() {
                   <textarea value={input} onChange={event => setInput(event.target.value)} aria-label="Contenu vérifié" maxLength={MAX_INPUT} />
                   {options}
                 </div>
-                <button className="primary" onClick={() => verify()} disabled={loading}>REFAIRE</button>
+                <button type="button" className="primary" onClick={() => verify()} disabled={loading}>REFAIRE</button>
               </div>
             )}
           </section>

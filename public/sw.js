@@ -1,5 +1,5 @@
 const BASE=new URL(self.registration.scope).pathname;
-const CACHE="verif-v8";
+const CACHE="verif-v9";
 // Filled at build time (scripts/release.mjs) with the entry script and stylesheet, so the app opens offline after the first visit.
 const BUILD_ASSETS=[/*__PRECACHE__*/];
 const INDEX=BASE+"index.html";
@@ -92,16 +92,18 @@ self.addEventListener("fetch",event=>{
   }
 
   // Hashed build files never change: serve them from the cache, fetch and keep them otherwise.
-  if(url.pathname.startsWith(BASE+"assets/")){
+  // The OCR engine lives in a versioned folder (ocr/<version>/), so it is immutable as well.
+  if(url.pathname.startsWith(BASE+"assets/")||url.pathname.startsWith(BASE+"ocr/")){
     event.respondWith(
-      caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>remember(event.request,response)))
+      // ignoreVary: a precached copy must also answer the page's own (crossorigin) request offline.
+      caches.match(event.request,{ignoreVary:true}).then(cached=>cached||fetch(event.request).then(response=>remember(event.request,response)))
     );
     return;
   }
 
   // Manifest, icons and other static files: answer from the cache and refresh in the background.
   event.respondWith(
-    caches.match(event.request).then(cached=>{
+    caches.match(event.request,{ignoreVary:true}).then(cached=>{
       const network=fetch(event.request).then(response=>remember(event.request,response));
       if(cached){ network.catch(()=>{}); return cached; }
       return network;

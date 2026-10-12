@@ -833,10 +833,21 @@ function plausibleNakedHost(host) {
 }
 
 // src/lib/context.ts
+var PREVENTION = [
+  // "Ne communiquez jamais votre code." / "Never share your password."
+  /^\s*(?:ne\s+(?:communiqu\w*|partag\w*|transmett\w*|donn\w*|envoy\w*)\s+(?:jamais|pas)|never\s+(?:share|send|give))\s+(?:votre|vos|ton|tes|un|your)\s+(?:code|mot de passe|password|otp)[\p{L}\p{N}\s’'-]*[.!?]?$/iu,
+  // "Ne le communiquez à personne." / "Ne le partagez pas." / "Ne communiquez ce code à personne."
+  /^\s*ne\s+(?:l['’]\s*|le\s+|la\s+|les\s+)?(?:communiqu\w*|partag\w*|transmett\w*|donn\w*|divulgu\w*|envoy\w*)\s+(?:(?:jamais|pas)\s+)?(?:ce code\s+|votre code\s+|ton code\s+|ce mot de passe\s+)?(?:à personne|avec personne|jamais|pas)(?:\s+(?:à personne|avec personne))?(?:\s+(?:même|y compris)\s+(?:à|au|aux)\s+[\p{L}\s’'-]{1,40})?\s*[.!?]?$/iu,
+  // "Ce code est personnel et confidentiel." / "Il est valable 10 minutes."
+  /^\s*(?:ce code|il|le code)\s+est\s+(?:strictement\s+)?(?:personnel|confidentiel|valable|valide)[\p{L}\p{N}\s’'-]*[.!?]?$/iu,
+  // "X ne vous demandera jamais ce code."
+  /^\s*[\p{L}\p{N}\s’'.-]{0,40}\bne\s+(?:vous|te)\s+(?:demandera|demande|réclamera)\s+jamais\s+(?:ce|votre|ton|de)\s+[\p{L}\s’'-]{0,40}[.!?]?$/iu
+];
 function activeContent(text) {
   return text.toLowerCase().split(/(?<=[.!?])\s+|\n/).filter((sentence) => {
-    if (/[,;:]|\b(?:mais|puis|ensuite|but|then)\b/.test(sentence)) return true;
-    return !/^\s*(?:ne\s+(?:communiqu\w*|partag\w*|transmett\w*|donn\w*|envoy\w*)\s+(?:jamais|pas)|never\s+(?:share|send|give))\s+(?:votre|vos|ton|tes|un|your)\s+(?:code|mot de passe|password|otp)[\p{L}\p{N}\s’'-]*[.!?]?$/iu.test(sentence);
+    const separated = /[,;:]|\b(?:mais|puis|ensuite|but|then)\b/.test(sentence);
+    if (separated && !/^\s*ne\s+(?:l['’]\s*|le\s+|la\s+|les\s+)?\w+\s+(?:à|avec)\s+personne,\s*(?:même|y compris)\s+[\p{L}\s’'-]{1,40}[.!?]?$/iu.test(sentence)) return true;
+    return !PREVENTION.some((re) => re.test(sentence.replace(/,\s*(?=même|y compris)/u, " ")));
   }).join("\n");
 }
 
@@ -844,7 +855,9 @@ function activeContent(text) {
 var REGISTRY = [
   { name: "Service-Public.fr", domain: "service-public.fr", aliases: ["service public", "service-public"] },
   { name: "impots.gouv.fr", domain: "impots.gouv.fr", aliases: ["impots", "imp\xF4t", "imp\xF4ts", "dgfip", "finances publiques"], also: ["finances.gouv.fr"] },
-  { name: "Ameli", domain: "ameli.fr", aliases: ["ameli", "assurance maladie", "cpam"] },
+  { name: "Ameli", domain: "ameli.fr", aliases: ["ameli", "assurance maladie", "cpam", "carte vitale"] },
+  { name: "Mon Compte Formation", domain: "moncompteformation.gouv.fr", aliases: ["mon compte formation", "moncompteformation", "cpf", "compte personnel de formation"] },
+  { name: "Crit\u2019Air", domain: "certificat-air.gouv.fr", aliases: ["crit'air", "crit\u2019air", "critair", "vignette crit"] },
   { name: "La Poste", domain: "laposte.fr", aliases: ["la poste"] },
   { name: "Chronopost", domain: "chronopost.fr", aliases: ["chronopost"] },
   { name: "Colissimo", domain: "laposte.fr", aliases: ["colissimo"] },
@@ -866,6 +879,8 @@ var REGISTRY = [
   { name: "Free", domain: "free.fr", aliases: ["free"] },
   { name: "Bouygues Telecom", domain: "bouyguestelecom.fr", aliases: ["bouygues telecom", "bouygues"] },
   { name: "EDF", domain: "edf.fr", aliases: ["edf"] },
+  { name: "Enedis", domain: "enedis.fr", aliases: ["enedis", "linky"] },
+  { name: "GRDF", domain: "grdf.fr", aliases: ["grdf", "gazpar"] },
   { name: "Engie", domain: "engie.com", aliases: ["engie"], also: ["engie.fr"] },
   { name: "TotalEnergies", domain: "totalenergies.fr", aliases: ["totalenergies", "total energies"], also: ["totalenergies.com"] },
   { name: "BNP Paribas", domain: "mabanque.bnpparibas", aliases: ["bnp paribas", "bnp"], also: ["bnpparibas"] },
@@ -885,10 +900,13 @@ var REGISTRY = [
   { name: "Meta", domain: "meta.com", aliases: ["meta", "facebook", "instagram", "whatsapp"], also: ["facebook.com", "instagram.com", "whatsapp.com", "messenger.com", "fb.com"] },
   { name: "Leboncoin", domain: "leboncoin.fr", aliases: ["leboncoin"] },
   { name: "Vinted", domain: "vinted.fr", aliases: ["vinted"], also: ["vinted.com"] },
+  { name: "Doctolib", domain: "doctolib.fr", aliases: ["doctolib"] },
   // gouv.fr is reserved to French public bodies: any host under it is an official site.
   // Kept last and without alias so the more specific entries above win.
   { name: "Site officiel de l\u2019administration fran\xE7aise (gouv.fr)", domain: "gouv.fr", aliases: [] }
 ];
+var CODE_REQUEST = /(?:communique|transmets|envoie|partage|donne|renvoie|renvoyer|renvoyez|dicte|dictez|lis-moi|lisez-moi).{0,50}(?:code|otp)|(?:code|otp).{0,80}(?:communique|transmets|envoie|partage|donne|renvoie|renvoyer|renvoyez|transférer|transférez|dicte|dictez|lire)/i;
+var OTP_NOTICE = /\b(?:code|otp)\b[^.\n]{0,40}?(?:est|:)\s*(?:[a-z]-)?\d{3}[\s-]?\d{1,5}\b|\b\d{4,8}\b[^.\n]{0,10}est votre code/i;
 var SHORTENERS = /^(?:www\.)?(?:bit\.ly|tinyurl\.com|t\.co|cutt\.ly|shorturl\.at|ow\.ly|is\.gd|goo\.gl|rb\.gy|rebrand\.ly)$/i;
 var MULTI_LABEL_SUFFIXES = /* @__PURE__ */ new Set(["co.uk", "com.au", "co.nz", "co.jp", "gouv.fr"]);
 var FREE_MAIL = /^(?:gmail\.com|googlemail\.com|outlook\.com|outlook\.fr|hotmail\.com|hotmail\.fr|live\.com|live\.fr|msn\.com|yahoo\.fr|yahoo\.com|icloud\.com|me\.com|proton\.me|protonmail\.com|gmx\.fr|gmx\.com|aol\.com|laposte\.net|wanadoo\.fr|orange\.fr|sfr\.fr|neuf\.fr|free\.fr|bbox\.fr|numericable\.fr)$/i;
@@ -939,6 +957,10 @@ function hostIn(host, domain) {
 function belongsTo(e, host) {
   return domainsOf(e).some((d) => hostIn(host, d));
 }
+function embeddedOfficialDomain(host) {
+  const h = host.toLowerCase();
+  return REGISTRY.flatMap(domainsOf).filter((d) => d.includes(".")).find((d) => !hostIn(h, d) && new RegExp("(?:^|[.-])" + d.replace(/\./g, "\\.") + "(?:[.-]|$)").test(h)) || null;
+}
 function officialFor(host) {
   return REGISTRY.find((e) => belongsTo(e, host))?.name || null;
 }
@@ -975,8 +997,9 @@ function headersFrom(text) {
   }
   return out;
 }
+var CHANNEL_MENTION = /(?:sur|par|via|dans|en)\s+(?:whatsapp|telegram|signal|messenger|instagram|facebook|snapchat|tiktok)\b/giu;
 function claimedEntry(text) {
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().replace(CHANNEL_MENTION, " ");
   const brandContext = /compte|espace client|facture|abonnement|support|sécurité|connexion|paiement|service|application|client|livraison|commande|banque|assurance/i.test(lower);
   const escapeRegex = (value) => value.replace(/[.*+?^$()|[\]{}]/g, "\\$&");
   const scored = [];
@@ -993,27 +1016,74 @@ function claimedEntry(text) {
   return scored[0]?.e || null;
 }
 function scenario(text) {
-  const l = text.toLowerCase();
-  if (/colis|livraison|chronopost|colissimo|la poste|mondial relay|dpd|ups|dhl|fedex|frais de livraison/.test(l)) return "delivery_phishing";
+  const l = activeContent(text);
+  if (/(?:webcam|filmé|images? intimes?|sites? (?:pour adultes|porno))/.test(l) && /(?:bitcoin|crypto|pay|€|euros?)/.test(l)) return "sextortion";
+  if (/(?:virus|infecté|piraté|cheval de troie|logiciel malveillant)/.test(l) && /(?:appelez|contactez|composez|support|assistance|technicien)/.test(l)) return "tech_support";
+  if (/anydesk|teamviewer|rustdesk|quicksupport|prise en main à distance/.test(l)) return "tech_support";
+  if (/(?:nouveau numéro|changé de numéro|cassé mon (?:téléphone|portable)|perdu mon (?:téléphone|portable)|enregistre (?:ce|mon) (?:nouveau )?numéro)/.test(l)) return "family_impersonation";
+  if (/(?:placement|investi(?:r|ssez|ssement)|rendement|trading|crypto|forex)/.test(l) && /(?:garanti|sans risque|%\s*(?:par|\/)\s*(?:mois|semaine|jour)|doubl)/.test(l)) return "investment_scam";
+  if (/(?:héritage|succession|testament|loterie|tirage au sort|vous avez gagné|tu as gagné|gagnant)/.test(l)) return "advance_fee";
+  if (/(?:recrut|emploi|mission|job|travail|tâches?)/.test(l) && /(?:liker|likes?\b|noter|avis\b|à domicile|par jour|par heure)/.test(l)) return "job_scam";
+  if (/(?:service (?:fraude|sécurité)|conseiller|opération suspecte|paiement suspect)/.test(l) && /code|annuler|bloquer|sécuriser/.test(l)) return "fake_advisor";
+  if (/nouveau rib|nouvel iban|changement de rib|changement d'iban|coordonnées bancaires ont changé/.test(l)) return "transfer_fraud";
+  if (/colis|livraison|chronopost|colissimo|la poste|mondial relay|dpd|ups|dhl|fedex|frais de livraison|douane/.test(l)) return "delivery_phishing";
   if (/banque|carte bancaire|virement|iban|rib|cvv|cryptogramme|sécurité bancaire|crédit/.test(l)) return "banking_fraud";
   if (/remboursement|remboursé|rembourser|trop[- ]perçu|indemnité/.test(l)) return "refund_scam";
   if (/mot de passe|connexion|identifiant|compte|double authentification|code de sécurité|otp/.test(l)) return "account_takeover";
   if (/télécharger|download|apk|installer|pièce jointe|fichier/.test(l)) return "malware_download";
-  if (/impôt|impots|amende|caf|ameli|france travail|urssaf|service[- ]public|administration|ants/.test(l)) return "administrative_phishing";
+  if (/impôt|impots|amende|caf|ameli|france travail|urssaf|service[- ]public|administration|ants|cpf|crit.?air|vignette/.test(l)) return "administrative_phishing";
   return "generic_phishing";
 }
-function recommendation(s) {
-  const map = {
-    banking_fraud: ["Fraude bancaire", "now", "Ne r\xE9ponds pas au message. Contacte ta banque uniquement via son application ou son num\xE9ro officiel.", ["N\u2019utilise pas le lien re\xE7u.", "Contacte ta banque par un canal officiel.", "Conserve le message et les preuves."], "https://www.cybermalveillance.gouv.fr/"],
-    delivery_phishing: ["Fausse livraison", "today", "V\xE9rifie la livraison directement depuis le site ou l\u2019application officielle du transporteur.", ["N\u2019utilise pas le lien re\xE7u.", "V\xE9rifie le suivi depuis le site officiel.", "Ne paie aucun frais depuis le message."], "https://17cyber.gouv.fr/"],
-    account_takeover: ["Tentative de prise de compte", "now", "Ne communique aucun code. Acc\xE8de directement au service concern\xE9 depuis son application ou son site officiel.", ["Ne saisis aucun code ou mot de passe via le message.", "Change le mot de passe depuis le site officiel si tu l\u2019as communiqu\xE9.", "Active la double authentification."], "https://17cyber.gouv.fr/"],
-    refund_scam: ["Faux remboursement", "today", "V\xE9rifie tout remboursement depuis ton compte officiel avant toute action.", ["Ne fournis aucune donn\xE9e bancaire depuis le message.", "Contacte l\u2019organisme via ses coordonn\xE9es officielles.", "Conserve les preuves."], "https://17cyber.gouv.fr/"],
-    malware_download: ["T\xE9l\xE9chargement suspect", "now", "N\u2019ouvre pas le fichier et n\u2019installe rien depuis ce message.", ["N\u2019ouvre pas le fichier.", "Si une application a \xE9t\xE9 install\xE9e, fais v\xE9rifier l\u2019appareil.", "Conserve l\u2019URL et le message."], "https://17cyber.gouv.fr/"],
-    administrative_phishing: ["Hame\xE7onnage administratif", "today", "V\xE9rifie la d\xE9marche directement sur le site officiel de l\u2019administration.", ["N\u2019utilise pas le lien re\xE7u.", "Tape toi-m\xEAme l\u2019adresse officielle.", "Ne communique aucun code ou mot de passe."], "https://www.cybermalveillance.gouv.fr/"],
-    generic_phishing: ["Message suspect", "today", "V\xE9rifie l\u2019information ind\xE9pendamment avant toute action.", ["N\u2019utilise pas le lien re\xE7u si tu n\u2019es pas certain de sa destination.", "Contacte l\u2019organisme par un canal officiel.", "Conserve les preuves utiles."], "https://17cyber.gouv.fr/"]
-  };
-  const v = map[s] || map.generic_phishing;
-  return { scenario: s, label: v[0], urgency: v[1], summary: v[2], steps: v[3], preserveEvidence: true, resource: { label: "Obtenir de l\u2019aide sur 17Cyber", url: v[4] } };
+var HELP = {
+  cyber17: { label: "Obtenir de l\u2019aide sur 17Cyber", url: "https://17cyber.gouv.fr/" },
+  cybermalveillance: { label: "Conseils de Cybermalveillance.gouv.fr", url: "https://www.cybermalveillance.gouv.fr/" }
+};
+var REPORTING = {
+  sms: { label: "Transf\xE9rer le SMS au 33700", url: "https://www.33700.fr/" },
+  email: { label: "Signaler l\u2019e-mail \xE0 Signal Spam", url: "https://www.signal-spam.fr/" },
+  site: { label: "Signaler le site \xE0 Phishing Initiative", url: "https://phishing-initiative.fr/contrib/" },
+  pharos: { label: "Signaler \xE0 PHAROS (police)", url: "https://www.internet-signalement.gouv.fr/" },
+  infoEscroqueries: { label: "Info Escroqueries : 0 805 805 817 (gratuit)", url: "tel:+33805805817" },
+  perceval: { label: "D\xE9clarer un paiement frauduleux (Perceval)", url: "https://www.service-public.fr/particuliers/vosdroits/R46526" }
+};
+var SCENARIOS = {
+  banking_fraud: ["Fraude bancaire", "now", "Ne r\xE9ponds pas au message. Contacte ta banque uniquement via son application ou son num\xE9ro officiel.", ["N\u2019utilise pas le lien re\xE7u.", "Contacte ta banque par un canal officiel (application, num\xE9ro au dos de ta carte).", "Conserve le message et les preuves."], HELP.cyber17],
+  fake_advisor: ["Faux conseiller bancaire", "now", "Une vraie banque ne te demandera jamais un code re\xE7u par SMS, ni de valider une op\xE9ration pour \xAB l\u2019annuler \xBB.", ["Raccroche ou ne r\xE9ponds plus, m\xEAme si le num\xE9ro affich\xE9 semble \xEAtre celui de ta banque.", "Rappelle toi-m\xEAme ta banque avec le num\xE9ro au dos de ta carte.", "Ne communique aucun code, ne valide aucune op\xE9ration dans ton application."], HELP.cyber17],
+  transfer_fraud: ["Fraude au changement de RIB", "now", "Avant tout virement vers un nouveau RIB, confirme le changement par t\xE9l\xE9phone avec un contact que tu connais d\xE9j\xE0.", ["N\u2019effectue pas le virement depuis ce message.", "Appelle le fournisseur ou la personne avec un num\xE9ro que tu avais d\xE9j\xE0 (pas celui du message).", "Si un virement est d\xE9j\xE0 parti, contacte ta banque imm\xE9diatement pour tenter un rappel des fonds."], HELP.cyber17],
+  delivery_phishing: ["Faux colis", "today", "V\xE9rifie la livraison directement depuis le site ou l\u2019application officielle du transporteur.", ["N\u2019utilise pas le lien re\xE7u.", "V\xE9rifie le suivi depuis le site officiel avec ton num\xE9ro de colis.", "Ne paie aucun frais depuis le message."], HELP.cyber17],
+  account_takeover: ["Tentative de vol de compte", "now", "Ne communique aucun code. Acc\xE8de directement au service concern\xE9 depuis son application ou son site officiel.", ["Ne saisis aucun code ou mot de passe via le message.", "Change le mot de passe depuis le site officiel si tu l\u2019as communiqu\xE9.", "Active la double authentification."], HELP.cyber17],
+  refund_scam: ["Faux remboursement", "today", "V\xE9rifie tout remboursement depuis ton compte officiel avant toute action.", ["Ne fournis aucune donn\xE9e bancaire depuis le message.", "Contacte l\u2019organisme via ses coordonn\xE9es officielles.", "Conserve les preuves."], HELP.cyber17],
+  malware_download: ["T\xE9l\xE9chargement suspect", "now", "N\u2019ouvre pas le fichier et n\u2019installe rien depuis ce message.", ["N\u2019ouvre pas le fichier.", "Si une application a \xE9t\xE9 install\xE9e, fais v\xE9rifier l\u2019appareil.", "Conserve l\u2019URL et le message."], HELP.cyber17],
+  administrative_phishing: ["Fausse d\xE9marche administrative", "today", "V\xE9rifie la d\xE9marche directement sur le site officiel de l\u2019administration.", ["N\u2019utilise pas le lien re\xE7u.", "Tape toi-m\xEAme l\u2019adresse officielle (elle se termine par .gouv.fr pour l\u2019\xC9tat).", "Ne communique aucun code ou mot de passe."], HELP.cybermalveillance],
+  family_impersonation: ["Faux proche (\xAB nouveau num\xE9ro \xBB)", "now", "Avant toute aide, appelle ton proche sur son ancien num\xE9ro ou demande-lui un d\xE9tail que seul lui conna\xEEt.", ["N\u2019envoie pas d\u2019argent et ne paie aucune facture pour lui.", "Appelle la personne sur le num\xE9ro que tu connais, ou contacte un autre membre de la famille.", "Ne r\xE9ponds pas aux relances qui insistent sur l\u2019urgence."], HELP.cybermalveillance],
+  advance_fee: ["Faux gain ou faux h\xE9ritage", "today", "Un vrai gain ou h\xE9ritage ne demande jamais de payer des frais \xE0 l\u2019avance ni d\u2019envoyer ses papiers \xE0 un inconnu.", ["Ne r\xE9ponds pas et ne paie aucun frais.", "N\u2019envoie ni pi\xE8ce d\u2019identit\xE9 ni coordonn\xE9es bancaires.", "Bloque l\u2019exp\xE9diteur."], HELP.cybermalveillance],
+  investment_scam: ["Faux placement", "now", "Aucun placement n\u2019est \xE0 la fois garanti et tr\xE8s rentable. V\xE9rifie toujours l\u2019interm\xE9diaire sur les listes noires de l\u2019AMF.", ["N\u2019investis pas et ne transf\xE8re pas de cryptomonnaie.", "V\xE9rifie l\u2019interm\xE9diaire sur le site de l\u2019AMF (amf-france.org).", "Si tu as d\xE9j\xE0 vers\xE9 de l\u2019argent, m\xE9fie-toi des offres de \xAB r\xE9cup\xE9ration des fonds \xBB : c\u2019est une seconde arnaque."], { label: "Listes noires de l\u2019AMF", url: "https://www.amf-france.org/fr/espace-epargnants/proteger-son-epargne/listes-noires-et-mises-en-garde" }],
+  tech_support: ["Faux support technique", "now", "Microsoft, Apple ou ta banque n\u2019affichent jamais un num\xE9ro \xE0 appeler pour un virus. N\u2019appelle pas et n\u2019installe rien.", ["N\u2019appelle pas le num\xE9ro affich\xE9 et ne donne pas l\u2019acc\xE8s \xE0 ton appareil.", "Ferme le navigateur (au besoin, red\xE9marre l\u2019appareil).", "Si quelqu\u2019un a pris la main sur l\u2019appareil, d\xE9connecte-le d\u2019internet et change tes mots de passe depuis un autre appareil."], HELP.cyber17],
+  job_scam: ["Fausse offre d\u2019emploi", "today", "Un employeur s\xE9rieux ne recrute pas par WhatsApp pour \xAB liker \xBB des vid\xE9os, et ne te demande jamais d\u2019avancer de l\u2019argent.", ["Ne r\xE9ponds pas et n\u2019envoie aucun document d\u2019identit\xE9.", "Ne verse jamais d\u2019argent pour \xAB d\xE9bloquer \xBB des gains.", "Bloque et signale le contact dans la messagerie."], HELP.cybermalveillance],
+  sextortion: ["Chantage \xE0 la webcam", "today", "Ce type de message est envoy\xE9 en masse : dans l\u2019immense majorit\xE9 des cas, l\u2019auteur n\u2019a aucune vid\xE9o. Ne paie pas.", ["Ne paie pas et ne r\xE9ponds pas.", "Change le mot de passe cit\xE9 dans le message s\u2019il est r\xE9el, et active la double authentification.", "Conserve le message et signale-le."], { label: "Que faire en cas de chantage (Cybermalveillance)", url: "https://www.cybermalveillance.gouv.fr/" }],
+  generic_phishing: ["Message suspect", "today", "V\xE9rifie l\u2019information ind\xE9pendamment avant toute action.", ["N\u2019utilise pas le lien re\xE7u si tu n\u2019es pas certain de sa destination.", "Contacte l\u2019organisme par un canal officiel.", "Conserve les preuves utiles."], HELP.cyber17]
+};
+function channelOf(text) {
+  if (/^\s*(?:from|de|expéditeur|objet|subject|to|à)\s*:/im.test(text) || /\b(?:e-?mail|courriel)\b/i.test(text)) return "email";
+  return "sms";
+}
+function recommendation(s, text = "", ctx = {}) {
+  const v = SCENARIOS[s] || SCENARIOS.generic_phishing;
+  const reports = [];
+  if (text) {
+    reports.push(channelOf(text) === "email" ? REPORTING.email : REPORTING.sms);
+    if (ctx.hasUrl) reports.push(REPORTING.site);
+    if (ctx.verdict === "stop" || s === "sextortion" || s === "investment_scam") reports.push(REPORTING.pharos);
+    if (ctx.verdict === "stop" || ctx.verdict === "caution") reports.push(REPORTING.infoEscroqueries);
+  }
+  return { scenario: s, label: v[0], urgency: v[1], summary: v[2], steps: v[3], preserveEvidence: true, channel: text ? channelOf(text) : void 0, reports, resource: v[4] };
+}
+function recommendationFor(text, result) {
+  return recommendation(scenario(text), text, { verdict: result.verdict, hasUrl: Boolean(result.urls?.length) });
+}
+function actionsFor(verdict, hasUrl) {
+  const dontUse = hasUrl ? "N\u2019ouvre pas le lien re\xE7u et ne r\xE9ponds pas au message." : "Ne r\xE9ponds pas au message et ne rappelle pas le num\xE9ro qu\u2019il indique.";
+  return verdict === "stop" ? [dontUse, "Ouvre toi-m\xEAme le site ou l\u2019application officielle, ou contacte la personne par un moyen que tu connais d\xE9j\xE0.", "Ne communique aucun code, mot de passe ou donn\xE9e bancaire, et ne paie rien."] : verdict === "caution" ? [dontUse, "V\xE9rifie l\u2019organisme ou la personne par un canal ind\xE9pendant.", "En cas de doute, ne paie rien et ne communique aucun code."] : verdict === "check" ? ["V\xE9rifie l\u2019information depuis la source officielle avant d\u2019agir."] : ["Si le message est inattendu, v\xE9rifie quand m\xEAme la source officielle.", "Ne communique jamais un code ou un mot de passe simplement parce qu\u2019un message le demande."];
 }
 function analyzeText(input) {
   const text = input.trim(), lower = activeContent(text), checkedAt = (/* @__PURE__ */ new Date()).toISOString();
@@ -1038,6 +1108,8 @@ function analyzeText(input) {
         if (/[?&](redirect|url|target|dest|continue|next|return|redirect_uri)=/i.test(u.search)) findings.push("Le lien contient un param\xE8tre de redirection.");
         if (EXEC_EXT.test(u.pathname)) findings.push("Le lien pointe vers un fichier ou paquet potentiellement ex\xE9cutable.");
         if (u.hostname.split(".").length >= 5) findings.push("Le domaine comporte un nombre inhabituellement \xE9lev\xE9 de sous-domaines.");
+        const disguise = embeddedOfficialDomain(host);
+        if (disguise) findings.push(`L\u2019adresse commence comme \xAB ${disguise} \xBB, mais le site r\xE9ellement ouvert est \xAB ${root} \xBB.`);
       } catch {
         findings.push("Le lien n\u2019a pas pu \xEAtre interpr\xE9t\xE9 comme une URL valide.");
       }
@@ -1046,8 +1118,9 @@ function analyzeText(input) {
   });
   let risk = 0;
   const finance = /paiement|payez|payer|virement|carte bancaire|iban|rib|frais|(?:\b\d{1,6}(?:[.,]\d{1,2})?\s*(?:€|eur)(?!\w))|cvv|cryptogramme/i.test(lower);
-  const urgency = /urgent|urgence|immédiat|immédiatement|dans\s+\d+\s*(?:min|minute|h|heure|jour)|dernière chance|dernier avertissement|suspendu|bloqué|sera clôturé|expir/i.test(lower);
-  const credentials = /mot de passe|identifiant|connexion|code de sécurité|code de vérification|otp|double authentification|numéro de carte|cvv|cryptogramme/i.test(lower);
+  const urgency = /urgent|urgence|immédiat|immédiatement|dans\s+\d+\s*(?:min|minute|h|heure|jour)|dernière chance|dernier avertissement|suspendu|bloqué|sera clôturé|expir|coupée?s?\b|coupure|majorée?s?\b|majoration|poursuites|huissier|sous peine/i.test(lower);
+  const otpNotice = OTP_NOTICE.test(lower) && !foundUrls.length && !CODE_REQUEST.test(lower) && !/mot de passe|numéro de carte|cvv|cryptogramme|iban|virement|paiement/.test(lower);
+  const credentials = !otpNotice && /mot de passe|identifiant|connexion|code de sécurité|code de vérification|otp|double authentification|numéro de carte|cvv|cryptogramme/i.test(lower);
   const cta = /cliquez|clique|connectez-vous|ouvrez le lien|confirmez|régularisez|payez|mettez à jour|vérifiez votre compte|consultez le lien/i.test(lower);
   const delivery = /colis|livraison|chronopost|colissimo|la poste|mondial relay|dpd|ups|dhl|fedex|frais de livraison/i.test(lower);
   const admin = /impôt|impots|amende|caf|ameli|france travail|urssaf|service[- ]public|administration|ants/i.test(lower);
@@ -1074,7 +1147,7 @@ function analyzeText(input) {
     reasons.push("Le contenu demande ou \xE9voque des informations d\u2019authentification ou de s\xE9curit\xE9.");
     risk += 2;
   }
-  if (/(?:communique|transmets|envoie|partage|donne).{0,50}(?:code|otp)|(?:code|otp).{0,50}(?:communique|transmets|envoie|partage|donne)/i.test(lower)) {
+  if (CODE_REQUEST.test(lower)) {
     reasons.push("Le message demande explicitement de transmettre un code de s\xE9curit\xE9 ou \xE0 usage unique.");
     risk += 4;
   }
@@ -1091,7 +1164,7 @@ function analyzeText(input) {
   }
   for (const f of new Set(urlData.flatMap((u) => u.findings))) {
     reasons.push(f);
-    risk += /représentation internationale|informations avant|port réseau|caractères invisibles|exécutable|nombre inhabituellement|URL valide/i.test(f) ? 3 : /adresse IP/i.test(f) ? 2 : /Lien raccourci|redirection/i.test(f) ? 2 : 2;
+    risk += /site réellement ouvert/i.test(f) ? 4 : /représentation internationale|informations avant|port réseau|caractères invisibles|exécutable|nombre inhabituellement|URL valide/i.test(f) ? 3 : /adresse IP/i.test(f) ? 2 : /Lien raccourci|redirection/i.test(f) ? 2 : 2;
   }
   const identity = { claimedBrand: claimed?.name || null, officialDomain: claimed?.domain || null, sender: sender?.email || null, senderDomain: sender?.rootDomain || null, status: "unknown" };
   if (claimed && sender?.rootDomain) {
@@ -1104,7 +1177,7 @@ function analyzeText(input) {
       risk += identity.status === "lookalike" ? 3 : 2;
     }
   } else if (claimed && !sender) {
-    if (foundUrls.length === 0 && /urgent|clique|confirme|payez|mot de passe|code/i.test(lower)) {
+    if (foundUrls.length === 0 && !otpNotice && /urgent|clique|confirme|payez|mot de passe|code/i.test(lower)) {
       reasons.push("L\u2019organisme cit\xE9 ne peut pas \xEAtre confirm\xE9 par une adresse d\u2019exp\xE9diteur.");
       risk += 1;
     }
@@ -1164,18 +1237,40 @@ function analyzeText(input) {
   const verdict = risk >= 6 ? "stop" : risk >= 3 ? "caution" : risk >= 1 ? "check" : "ok";
   const title = verdict === "stop" ? "N\u2019agis pas tout de suite" : verdict === "caution" ? "Prudence" : verdict === "check" ? "\xC0 v\xE9rifier" : "Aucun signal \xE9vident d\xE9tect\xE9";
   const summary = verdict === "stop" ? "Plusieurs signaux forts sont compatibles avec une tentative de fraude." : verdict === "caution" ? "Plusieurs \xE9l\xE9ments m\xE9ritent une v\xE9rification ind\xE9pendante." : verdict === "check" ? "Un \xE9l\xE9ment m\xE9rite une v\xE9rification avant d\u2019agir." : "Aucun signal \xE9vident de fraude n\u2019a \xE9t\xE9 d\xE9tect\xE9 dans le contenu fourni.";
-  const actions = verdict === "stop" ? ["N\u2019utilise pas le lien re\xE7u.", "Ouvre toi-m\xEAme le site ou l\u2019application officielle.", "Ne communique aucun code, mot de passe ou donn\xE9e bancaire."] : verdict === "caution" ? ["N\u2019agis pas depuis le message.", "V\xE9rifie l\u2019organisme par un canal ind\xE9pendant.", "En cas de doute, ne paie rien et ne communique aucun code."] : verdict === "check" ? ["V\xE9rifie l\u2019information depuis la source officielle avant d\u2019agir."] : ["Si le message est inattendu, v\xE9rifie quand m\xEAme la source officielle.", "Ne communique jamais un code ou un mot de passe simplement parce qu\u2019un message le demande."];
+  const actions = actionsFor(verdict, foundUrls.length > 0);
   const confidence = verdict === "stop" ? "\xE9lev\xE9e" : verdict === "ok" ? "faible" : "moyenne";
   const base = { verdict, title, summary, reasons: reasons.length ? Array.from(new Set(reasons)) : ["Aucun signal de risque \xE9vident n\u2019a \xE9t\xE9 d\xE9tect\xE9."], actions, confidence, engine: "V\xC9RIF local", checkedAt, urls: urlData, identity: sender || claimed ? identity : void 0, evidence: { risk, headers: { from: headers.from, replyTo: headers.replyTo, returnPath: headers.returnPath, receivedCount: headers.received }, urlFindings: urlData.flatMap((u) => u.findings) } };
   if (verdict === "ok") return base;
-  const rec = recommendation(scenario(text));
-  const incidentReport = ["V\xC9RIF \u2014 DOSSIER D\u2019INCIDENT", "", "Date d\u2019analyse : " + checkedAt, "Verdict : " + verdict.toUpperCase(), "Sc\xE9nario : " + rec.label, "Score de risque : " + risk, "", "R\xC9SUM\xC9", summary, "", "SIGNAUX", ...base.reasons.map((r) => "- " + r), ...sender ? ["", "EXP\xC9DITEUR", sender.email] : [], ...foundUrls.length ? ["", "LIENS D\xC9TECT\xC9S", ...foundUrls] : []].join("\n");
-  return { ...base, recommendation: rec, incidentReport };
+  const rec = recommendationFor(text, { verdict, urls: urlData });
+  return { ...base, recommendation: rec, incidentReport: incidentReport({ ...base, recommendation: rec }) };
 }
-function refreshIncident(result) {
-  if (result.verdict === "ok") return result;
-  const rec = result.recommendation || recommendation("generic_phishing");
-  return { ...result, recommendation: rec, incidentReport: ["V\xC9RIF \u2014 DOSSIER D\u2019INCIDENT", `Date : ${result.checkedAt || (/* @__PURE__ */ new Date()).toISOString()}`, `Verdict : ${result.verdict.toUpperCase()}`, `Score de risque : ${result.evidence?.risk ?? 0}`, "", result.summary, "", ...result.reasons.map((r) => "- " + r)].join("\n") };
+function refreshIncident(result, text) {
+  if (result.verdict === "ok") return { ...result, recommendation: void 0, incidentReport: void 0 };
+  const rec = text ? recommendationFor(text, result) : result.recommendation || recommendation("generic_phishing");
+  return { ...result, recommendation: rec, incidentReport: incidentReport({ ...result, recommendation: rec }) };
+}
+function incidentReport(result) {
+  const checkedAt = result.checkedAt || (/* @__PURE__ */ new Date()).toISOString();
+  return [
+    "V\xC9RIF \u2014 DOSSIER D\u2019INCIDENT",
+    "",
+    "Date d\u2019analyse : " + new Date(checkedAt).toLocaleString("fr-FR"),
+    "Verdict : " + result.verdict.toUpperCase(),
+    "Type d\u2019arnaque probable : " + (result.recommendation?.label || "Non d\xE9termin\xE9"),
+    "",
+    "R\xC9SUM\xC9",
+    result.summary,
+    "",
+    "SIGNAUX D\xC9TECT\xC9S",
+    ...result.reasons.map((r) => "- " + r),
+    ...result.identity?.sender ? ["", "EXP\xC9DITEUR", result.identity.sender] : [],
+    ...result.urls?.length ? ["", "LIENS D\xC9TECT\xC9S (ne pas ouvrir)", ...result.urls.map((u) => "- " + u.url.replace(/^http/i, "hxxp"))] : [],
+    "",
+    "\xC0 CONSERVER",
+    "- Le message ou la capture d\u2019origine",
+    "- L\u2019adresse ou le num\xE9ro de l\u2019exp\xE9diteur",
+    "- Les preuves de paiement \xE9ventuelles"
+  ].join("\n");
 }
 
 // src/lib/intelligence.ts
@@ -1219,7 +1314,7 @@ function advancedLocalEvidence(text, base) {
   const reasons = [];
   let delta = 0;
   const add = (condition, reason, weight) => {
-    if (condition) {
+    if (condition && weight > 0) {
       reasons.push(reason);
       delta += weight;
     }
@@ -1268,6 +1363,47 @@ function advancedLocalEvidence(text, base) {
     /\b(?:code reçu|code sms|code de vérification|otp)\b/i.test(lower) && /donne|communique|transmets|envoie|partage/.test(lower),
     "Le message demande explicitement de transmettre un code \xE0 usage unique.",
     5
+  );
+  const money = /\d[\d\s.,]*\s*(?:€|euros?\b|eur\b)|virement|payer|paie|payez|régler|réglez|frais|western union|mandat cash|bitcoin|crypto|carte(?:s)? cadeau|transcash|pcs/i.test(lower);
+  add(
+    /(?:nouveau numéro|changé de numéro|change de numéro|cassé mon (?:téléphone|portable|tel)|perdu mon (?:téléphone|portable|tel)|mon (?:téléphone|portable) (?:est )?(?:cassé|tombé|perdu)|enregistre (?:ce|mon) (?:nouveau )?numéro)/i.test(lower),
+    "Le message vient d\u2019un \xAB nouveau num\xE9ro \xBB qui se pr\xE9sente comme un proche : v\xE9rifie en appelant son ancien num\xE9ro.",
+    money ? 5 : /aide|besoin|urgent|whatsapp|écris-moi|ecris-moi|réponds-moi/i.test(lower) ? 2 : 0
+  );
+  add(
+    /(?:héritage|succession|legs\b|testament|loterie|tirage au sort|vous avez gagné|tu as gagné|gagnant)/i.test(lower) && /(?:millions?|frais|régl|pay|virement|coordonnées|formalités|réclamer|récupérer|recevoir)/i.test(lower) && !/points? de fidélité/i.test(lower),
+    "Le message promet un gain, un lot ou un h\xE9ritage inattendu : ce type de promesse pr\xE9c\xE8de presque toujours une demande d\u2019argent ou de donn\xE9es.",
+    /millions?|frais/i.test(lower) ? 6 : 4
+  );
+  add(
+    /(?:placement|investi(?:r|ssez|ssement)|rendement|trading|crypto|forex|bourse)/i.test(lower) && /(?:garanti|sans risque|\d+\s*%\s*(?:par|\/|chaque)\s*(?:mois|semaine|jour)|doubl(?:er|ez)|gagnez\s+\d|rapporte\s+\d)/i.test(lower),
+    "Le message promet un rendement \xE9lev\xE9 ou garanti : aucun placement r\xE9el n\u2019est \xE0 la fois sans risque et tr\xE8s rentable.",
+    6
+  );
+  add(
+    /(?:virus|infecté|piraté|cheval de troie|logiciel malveillant|malware|bloqué)/i.test(lower) && /(?:ordinateur|\bpc\b|windows|mac\b|appareil|navigateur)/i.test(lower) && /(?:appelez|appeler|contactez|composez|support technique|assistance technique|technicien|\b0\d(?:[ .]?\d{2}){4}\b)/i.test(lower),
+    "Le message annonce un probl\xE8me informatique et demande d\u2019appeler un support : c\u2019est le sc\xE9nario du faux support technique.",
+    6
+  );
+  add(
+    /(?:recrut|emploi|offre d['’]emploi|mission|job|travail|tâches?|complément de revenu)/i.test(lower) && /(?:liker|likes?\b|abonnez|noter|avis\b|à domicile|depuis chez (?:vous|toi)|\d+\s*(?:€|euros?)\s*(?:par|\/|à)\s*(?:jour|heure|h\b|tâche))/i.test(lower) && /(?:whatsapp|telegram|contact|écri|répond|ajoute)/i.test(lower),
+    "Le message propose un travail facile et tr\xE8s bien pay\xE9 par messagerie : sc\xE9nario classique d\u2019arnaque aux \xAB missions \xBB r\xE9mun\xE9r\xE9es.",
+    5
+  );
+  add(
+    /(?:webcam|filmé|images? intimes?|sites? (?:pour adultes|porno|x\b))/i.test(lower) && money && /(?:contacts|famille|proches|publier|diffuser|envoyer la vidéo|j['’]envoie la vidéo)/i.test(lower),
+    "Le message menace de diffuser des images intimes contre paiement (chantage). Ne paie pas : ces menaces sont presque toujours du bluff.",
+    6
+  );
+  add(
+    /(?:\b08\s?9\d|\b08\s?1\d|\b08\s?2\d|\b3\d\s?\d\d\b)(?:[ .-]?\d{2}){2,3}/.test(lower) && /(?:appel|rappel|compos|contact|joindre)/i.test(lower),
+    "Le message demande d\u2019appeler un num\xE9ro surtax\xE9.",
+    3
+  );
+  add(
+    /(?:western union|moneygram|mandat cash|ria money)/i.test(lower) && money,
+    "Le message demande un transfert d\u2019argent difficile \xE0 annuler.",
+    3
   );
   add(
     /[\u200B-\u200D\u2060\uFEFF]/u.test(text),
@@ -1336,7 +1472,7 @@ function merge(base, text, ai, research, authInfo) {
     summary,
     reasons: dedupe(reasons).slice(0, 18),
     confidence,
-    actions: finalVerdict !== base.verdict ? ["V\xE9rifie par un canal ind\xE9pendant avant d\u2019agir.", "Ne communique aucun code, mot de passe ou paiement depuis ce message.", ...base.actions] : base.actions,
+    actions: finalVerdict !== base.verdict ? actionsFor(finalVerdict, Boolean(base.urls?.length)) : base.actions,
     incidentReport: void 0,
     engine: mode === "local" ? "V\xC9RIF local" : "V\xC9RIF Intelligence",
     evidence: { ...base.evidence || { risk: 0 }, risk: score },
@@ -1346,7 +1482,7 @@ function merge(base, text, ai, research, authInfo) {
       web: { attempted: (base.urls?.length || 0) > 0, available: webUsed, provider: research?.provider, items: webItems, searchedAt: webUsed ? (/* @__PURE__ */ new Date()).toISOString() : void 0 },
       mailAuth: authInfo.auth
     }
-  });
+  }, text);
 }
 function enrichLocal(base, input, ai, research) {
   return merge(base, input, ai, research, mailAuthEvidence(input));

@@ -171,3 +171,87 @@ button.brand{border:0;background:transparent;padding:0;cursor:pointer;font-famil
 .footerNav{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px;margin:4px 0}
 .footerNav button{border:0;background:transparent;padding:6px 4px;color:#245d4f;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 input[type="checkbox"]:focus-visible{outline:3px solid rgba(18,107,87,.28);outline-offset:2px}
+
+
+/* 2.2 — grand public: verdict first, examples, technical details folded, dark mode */
+.verdictHint{font-weight:700;color:var(--ink)!important;margin-bottom:6px!important}
+.resultCard.stop .verdictHint{color:#9f2f2f!important}
+.resultCard.caution .verdictHint{color:#97500f!important}
+.resultCard h2:focus{outline:none}
+.resultCard h2:focus-visible{outline:3px solid rgba(18,107,87,.28);outline-offset:4px;border-radius:6px}
+.refining{display:flex;align-items:center;gap:7px;margin-top:12px!important;font-size:13px!important;color:var(--muted)!important}
+.panel.todo{margin-top:20px;border-width:2px}
+.resultCard.stop .panel.todo{border-color:#efc9c9;background:#fff8f8}
+.resultCard.caution .panel.todo{border-color:#f1d6bd;background:#fffaf4}
+.panel.todo h3,.panel.reasons h3,.recommendation h3,.incident h3{font-size:16px}
+.panel.todo li{font-weight:600;color:var(--ink)}
+.panel.reasons{margin-top:14px}
+.recommendation .urgency{font-size:12px!important;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px!important}
+.recommendation ol{margin-top:10px}
+.recommendation .resource{display:inline-block;margin-top:12px;color:#245a4c;font-weight:700}
+.reporting a,.helpLinks a{text-decoration:none}
+.helpLinks{border:0;padding-top:10px}
+.technical{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.technical>summary{cursor:pointer;font-weight:800;color:#315c50;padding:6px 0}
+.technical .panel{margin-top:12px}
+.examples{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:14px;font-size:13px;color:var(--muted)}
+.exampleChip{border:1px dashed #b9cfc6;background:transparent;color:#245d4f;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.exampleChip:hover{background:#eef8f4;border-style:solid}
+.infoTitle{font-size:clamp(24px,4vw,32px);letter-spacing:-.04em;margin:38px 0 14px}
+.infoGrid.scams{grid-template-columns:repeat(2,1fr)}
+.usefulLinks li{margin:4px 0}
+.usefulLinks a,.privacyText a{color:#245a4c;font-weight:700}
+.tool{min-height:44px}
+@media(max-width:700px){.infoGrid.scams{grid-template-columns:1fr}.examples{gap:6px}.exampleChip{padding:8px 11px}}
+
+@media(prefers-color-scheme:dark){
+  :root{color-scheme:dark;--ink:#e6efeb;--muted:#9fb0a9;--line:#2a3833;--soft:#18211e;--brand:#3fae8f;--brand-dark:#5cc4a6;color:#e6efeb;background:#0f1513}
+  html,body{background:#0f1513}
+  .app{background:#0f1513}
+  .topbar{background:rgba(15,21,19,.88);border-bottom-color:#26332e;box-shadow:none}
+  .brand,.hero h1,.resultCard h2,.history h3,.infoPage h1,.infoTitle{color:var(--ink)}
+  .hero h1 span{color:var(--brand-dark)}
+  .hero p,.infoCard p,.privacyText p,.resultCard p,.panel ul,.panel ol,.tagline,.navLink{color:#b5c4be}
+  .heroBadge{background:#15241f;border-color:#264238;color:#8fd3bd}
+  .card,.resultCard,.composer{background:#151d1a;border-color:#26332e;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+  .composer textarea,.inputAgain textarea{color:var(--ink)}
+  .composer textarea::placeholder{color:#6f817a}
+  .tool,.back,.history button,.iconButton{background:#1b2521;border-color:#2c3a35;color:#dce7e2}
+  .tool:hover,.back:hover,.history button:hover{background:#21302b;border-color:#3d5a50}
+  .tool[aria-pressed="true"]{background:#1e3a31;color:#a6e3cf;border-color:var(--brand)}
+  .options{background:#18211e;border-color:#2a3833;color:#b5c4be}
+  .primary{background:#1f8a6d;color:#fff;box-shadow:none}
+  .primary:hover:not(:disabled){background:#26a07f}
+  .primary:disabled{background:#2c3a35;color:#7f918a}
+  .secondary{background:#151d1a;border-color:#3d5a50;color:#a6e3cf}
+  .secondary:hover{background:#1b2925}
+  .notice{background:#15241f;border-color:#264238;color:#a6e3cf}
+  .trust span{background:#151d1a;border-color:#26332e;color:#9fb0a9}
+  .panel,.infoCard,.incidentAdvice,.incidentReport{background:#18211e;border-color:#2a3833;box-shadow:none}
+  .panel h3,.infoCard b{color:var(--ink)}
+  .resultCard.stop .panel.todo{background:#2a1717;border-color:#5a2c2c}
+  .resultCard.caution .panel.todo{background:#2a2015;border-color:#5a4126}
+  .recommendation,.recommendation.urgency-now,.recommendation.urgency-today{background:#18211e;border-color:#33463f}
+  .recommendation.urgency-now{border-color:#5a2c2c}
+  .recommendation.urgency-today{border-color:#5a4c26}
+  .intelligencePanel{background:#18211e;border-color:#2a3833}
+  .stateIcon{background:#1b2521}
+  .resultCard.ok .stateIcon,.resultCard.ok .stateLabel{color:#5cc79a}
+  .resultCard.check .stateIcon,.resultCard.check .stateLabel{color:#e2b54a}
+  .resultCard.caution .stateIcon,.resultCard.caution .stateLabel{color:#ec9a55}
+  .resultCard.stop .stateIcon,.resultCard.stop .stateLabel{color:#f07c7c}
+  .resultCard .verdictHint{color:var(--ink)!important}
+  .resultCard.stop .verdictHint{color:#f6a3a3!important}
+  .resultCard.caution .verdictHint{color:#f3bb87!important}
+  .resultTopline,.confidence,.eyebrow{color:#8a9b94}
+  .technical>summary,.incidentReport summary,.footerNav button,.recommendation .resource,.reporting a,.usefulLinks a,.privacyText a,.exampleChip{color:#8fd3bd}
+  .exampleChip{border-color:#3d5a50}
+  .exampleChip:hover{background:#1b2925}
+  .links>div,.confidence,.technical,.reporting,.tools{border-color:#2a3833}
+  .cameraCard{background:#151d1a;border-color:#26332e}
+  .cameraCard>p{color:#9fb0a9}
+  footer{background:#0f1513;border-top-color:#26332e;color:#8a9b94}
+  footer strong{color:var(--ink)}
+  footer small{color:#7f918a}
+}
+@media(max-width:700px){.reporting .tools,.helpLinks{display:flex;flex-direction:column}.reporting .tool,.helpLinks .tool{justify-content:flex-start;padding:10px 12px}}

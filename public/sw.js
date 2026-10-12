@@ -1,10 +1,18 @@
 const BASE=new URL(self.registration.scope).pathname;
-const CACHE="verif-v7";
-const APP_SHELL=[BASE,BASE+"index.html",BASE+"manifest.webmanifest",BASE+"icon.svg"];
+const CACHE="verif-v8";
+// Filled at build time (scripts/release.mjs) with the entry script and stylesheet, so the app opens offline after the first visit.
+const BUILD_ASSETS=[/*__PRECACHE__*/];
+const INDEX=BASE+"index.html";
+const APP_SHELL=[BASE,INDEX,BASE+"manifest.webmanifest",BASE+"icon.svg"];
+const OPTIONAL_SHELL=[BASE+"icon-192.png",BASE+"icon-512.png",...BUILD_ASSETS.map(path=>BASE+path)];
 const SHARED=BASE+"__shared";
 
 self.addEventListener("install",event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE)
+      .then(cache=>cache.addAll(APP_SHELL).then(()=>Promise.allSettled(OPTIONAL_SHELL.map(url=>cache.add(url)))))
+      .then(()=>self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate",event=>{
@@ -44,6 +52,14 @@ async function storeShared(request){
   return Response.redirect(BASE+"?shared=1",303);
 }
 
+function remember(request,response){
+  if(response&&response.ok){
+    const copy=response.clone();
+    caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{});
+  }
+  return response;
+}
+
 self.addEventListener("fetch",event=>{
   const url=new URL(event.request.url);
   if(url.origin!==self.location.origin) return;
@@ -55,34 +71,40 @@ self.addEventListener("fetch",event=>{
 
   if(event.request.method!=="GET") return;
 
-  const isDocument=url.pathname===BASE||url.pathname===BASE+"index.html";
-  const isAsset=url.pathname.startsWith(BASE+"assets/");
+  // Shared content only ever lives in the cache: never ask the network for it.
+  if(url.pathname===SHARED){
+    event.respondWith(caches.match(SHARED).then(cached=>cached||new Response("null",{status:404,headers:{"Content-Type":"application/json"}})));
+    return;
+  }
 
+  const isDocument=event.request.mode==="navigate"||url.pathname===BASE||url.pathname===INDEX;
   if(isDocument){
+    // Network first so a new release is picked up; the cached shell answers offline whatever the query string.
     event.respondWith(
       fetch(event.request)
         .then(response=>{
-          if(response.ok){
-            const copy=response.clone();
-            caches.open(CACHE).then(cache=>cache.put(event.request,copy));
-          }
+          if(response.ok&&(url.pathname===BASE||url.pathname===INDEX)) remember(INDEX,response);
           return response;
         })
-        .catch(()=>caches.match(event.request))
+        .catch(()=>caches.match(INDEX).then(cached=>cached||caches.match(BASE)).then(cached=>cached||Response.error()))
     );
     return;
   }
 
+  // Hashed build files never change: serve them from the cache, fetch and keep them otherwise.
+  if(url.pathname.startsWith(BASE+"assets/")){
+    event.respondWith(
+      caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>remember(event.request,response)))
+    );
+    return;
+  }
+
+  // Manifest, icons and other static files: answer from the cache and refresh in the background.
   event.respondWith(
     caches.match(event.request).then(cached=>{
-      const network=fetch(event.request).then(response=>{
-        if(response.ok && isAsset){
-          const copy=response.clone();
-          caches.open(CACHE).then(cache=>cache.put(event.request,copy));
-        }
-        return response;
-      }).catch(()=>cached);
-      return cached||network;
+      const network=fetch(event.request).then(response=>remember(event.request,response));
+      if(cached){ network.catch(()=>{}); return cached; }
+      return network;
     })
   );
 });

@@ -776,7 +776,7 @@ var require_cjs = __commonJS({
       out.publicSuffix = lastDot === -1 ? hostname : hostname.slice(lastDot + 1);
     }
     var RESULT = getEmptyResult();
-    function parse(url, options) {
+    function parse2(url, options) {
       return parseImpl(url, 5, suffixLookup, options, getEmptyResult());
     }
     function getHostname(url, options) {
@@ -810,7 +810,7 @@ var require_cjs = __commonJS({
     exports.getHostname = getHostname;
     exports.getPublicSuffix = getPublicSuffix;
     exports.getSubdomain = getSubdomain;
-    exports.parse = parse;
+    exports.parse = parse2;
   }
 });
 
@@ -822,6 +822,14 @@ function registeredDomain(host) {
 function networkHost(host) {
   const h = host.toLowerCase().replace(/\.$/, "");
   return h.length <= 253 && /^[a-z0-9.-]+$/.test(h) && !/^\d+(?:\.\d+)*$/.test(h) && !/(?:^|\.)(?:localhost|local|internal|test|invalid|example|onion)$/.test(h) && Boolean((0, import_tldts.getDomain)(h));
+}
+var RESERVED_TLD = /\.(?:example|test|invalid)$/;
+function plausibleNakedHost(host) {
+  const h = host.toLowerCase().replace(/\.$/, "");
+  if (!/^[a-z0-9.-]+$/.test(h) || h.length > 253) return false;
+  if (RESERVED_TLD.test(h)) return true;
+  const info = (0, import_tldts.parse)(h);
+  return Boolean(info.domain) && info.isIcann === true;
 }
 
 // src/lib/context.ts
@@ -835,52 +843,55 @@ function activeContent(text) {
 // src/lib/analyze.ts
 var REGISTRY = [
   { name: "Service-Public.fr", domain: "service-public.fr", aliases: ["service public", "service-public"] },
-  { name: "impots.gouv.fr", domain: "impots.gouv.fr", aliases: ["impots", "imp\xF4t", "imp\xF4ts", "dgfip", "finances publiques"] },
+  { name: "impots.gouv.fr", domain: "impots.gouv.fr", aliases: ["impots", "imp\xF4t", "imp\xF4ts", "dgfip", "finances publiques"], also: ["finances.gouv.fr"] },
   { name: "Ameli", domain: "ameli.fr", aliases: ["ameli", "assurance maladie", "cpam"] },
   { name: "La Poste", domain: "laposte.fr", aliases: ["la poste"] },
   { name: "Chronopost", domain: "chronopost.fr", aliases: ["chronopost"] },
   { name: "Colissimo", domain: "laposte.fr", aliases: ["colissimo"] },
   { name: "Mondial Relay", domain: "mondialrelay.fr", aliases: ["mondial relay"] },
-  { name: "DPD", domain: "dpd.fr", aliases: ["dpd"] },
-  { name: "DHL", domain: "dhl.com", aliases: ["dhl"] },
+  { name: "DPD", domain: "dpd.fr", aliases: ["dpd"], also: ["dpd.com"] },
+  { name: "DHL", domain: "dhl.com", aliases: ["dhl"], also: ["dhl.fr"] },
   { name: "UPS", domain: "ups.com", aliases: ["ups"] },
   { name: "FedEx", domain: "fedex.com", aliases: ["fedex"] },
   { name: "ANTS", domain: "ants.gouv.fr", aliases: ["ants", "agence nationale des titres s\xE9curis\xE9s"] },
-  { name: "ANTAI", domain: "antai.gouv.fr", aliases: ["antai", "amendes.gouv.fr", "amende"] },
+  { name: "ANTAI", domain: "antai.gouv.fr", aliases: ["antai", "amendes.gouv.fr", "amende"], also: ["amendes.gouv.fr", "stationnement.gouv.fr"] },
   { name: "Cybermalveillance.gouv.fr", domain: "cybermalveillance.gouv.fr", aliases: ["cybermalveillance"] },
   { name: "17Cyber", domain: "17cyber.gouv.fr", aliases: ["17cyber"] },
   { name: "CAF", domain: "caf.fr", aliases: ["caf", "caisse d'allocations familiales"] },
-  { name: "France Travail", domain: "francetravail.fr", aliases: ["france travail", "francetravail", "p\xF4le emploi", "pole emploi"] },
+  { name: "France Travail", domain: "francetravail.fr", aliases: ["france travail", "francetravail", "p\xF4le emploi", "pole emploi"], also: ["pole-emploi.fr"] },
   { name: "Urssaf", domain: "urssaf.fr", aliases: ["urssaf"] },
-  { name: "SNCF Connect", domain: "sncf-connect.com", aliases: ["sncf connect", "sncf"] },
-  { name: "Orange", domain: "orange.fr", aliases: ["orange"] },
+  { name: "SNCF Connect", domain: "sncf-connect.com", aliases: ["sncf connect", "sncf"], also: ["sncf.com", "oui.sncf"] },
+  { name: "Orange", domain: "orange.fr", aliases: ["orange"], also: ["orange.com"] },
   { name: "SFR", domain: "sfr.fr", aliases: ["sfr"] },
   { name: "Free", domain: "free.fr", aliases: ["free"] },
   { name: "Bouygues Telecom", domain: "bouyguestelecom.fr", aliases: ["bouygues telecom", "bouygues"] },
   { name: "EDF", domain: "edf.fr", aliases: ["edf"] },
-  { name: "Engie", domain: "engie.com", aliases: ["engie"] },
-  { name: "TotalEnergies", domain: "totalenergies.fr", aliases: ["totalenergies", "total energies"] },
-  { name: "BNP Paribas", domain: "mabanque.bnpparibas", aliases: ["bnp paribas", "bnp"] },
+  { name: "Engie", domain: "engie.com", aliases: ["engie"], also: ["engie.fr"] },
+  { name: "TotalEnergies", domain: "totalenergies.fr", aliases: ["totalenergies", "total energies"], also: ["totalenergies.com"] },
+  { name: "BNP Paribas", domain: "mabanque.bnpparibas", aliases: ["bnp paribas", "bnp"], also: ["bnpparibas"] },
   { name: "Cr\xE9dit Agricole", domain: "credit-agricole.fr", aliases: ["credit agricole", "cr\xE9dit agricole"] },
-  { name: "Soci\xE9t\xE9 G\xE9n\xE9rale", domain: "societegenerale.fr", aliases: ["societe generale", "soci\xE9t\xE9 g\xE9n\xE9rale"] },
+  { name: "Soci\xE9t\xE9 G\xE9n\xE9rale", domain: "societegenerale.fr", aliases: ["societe generale", "soci\xE9t\xE9 g\xE9n\xE9rale"], also: ["sg.fr"] },
   { name: "La Banque Postale", domain: "labanquepostale.fr", aliases: ["la banque postale"] },
   { name: "LCL", domain: "lcl.fr", aliases: ["lcl"] },
-  { name: "Boursobank", domain: "boursobank.com", aliases: ["boursobank", "boursorama"] },
+  { name: "Boursobank", domain: "boursobank.com", aliases: ["boursobank", "boursorama"], also: ["boursorama.com"] },
   { name: "Caisse d'\xC9pargne", domain: "caisse-epargne.fr", aliases: ["caisse d'epargne", "caisse d\u2019\xE9pargne"] },
   { name: "Carrefour", domain: "carrefour.fr", aliases: ["carrefour"] },
-  { name: "Amazon", domain: "amazon.fr", aliases: ["amazon"] },
-  { name: "PayPal", domain: "paypal.com", aliases: ["paypal"] },
+  { name: "Amazon", domain: "amazon.fr", aliases: ["amazon"], also: ["amazon.com"] },
+  { name: "PayPal", domain: "paypal.com", aliases: ["paypal"], also: ["paypal.fr"] },
   { name: "Netflix", domain: "netflix.com", aliases: ["netflix"] },
-  { name: "Microsoft", domain: "microsoft.com", aliases: ["microsoft"] },
-  { name: "Apple", domain: "apple.com", aliases: ["apple", "icloud"] },
-  { name: "Google", domain: "google.com", aliases: ["google"] },
-  { name: "Meta", domain: "meta.com", aliases: ["meta", "facebook", "instagram", "whatsapp"] },
+  { name: "Microsoft", domain: "microsoft.com", aliases: ["microsoft"], also: ["live.com", "office.com", "microsoftonline.com", "outlook.com"] },
+  { name: "Apple", domain: "apple.com", aliases: ["apple", "icloud"], also: ["icloud.com"] },
+  { name: "Google", domain: "google.com", aliases: ["google"], also: ["google.fr", "youtube.com"] },
+  { name: "Meta", domain: "meta.com", aliases: ["meta", "facebook", "instagram", "whatsapp"], also: ["facebook.com", "instagram.com", "whatsapp.com", "messenger.com", "fb.com"] },
   { name: "Leboncoin", domain: "leboncoin.fr", aliases: ["leboncoin"] },
-  { name: "Vinted", domain: "vinted.fr", aliases: ["vinted"] }
+  { name: "Vinted", domain: "vinted.fr", aliases: ["vinted"], also: ["vinted.com"] },
+  // gouv.fr is reserved to French public bodies: any host under it is an official site.
+  // Kept last and without alias so the more specific entries above win.
+  { name: "Site officiel de l\u2019administration fran\xE7aise (gouv.fr)", domain: "gouv.fr", aliases: [] }
 ];
 var SHORTENERS = /^(?:www\.)?(?:bit\.ly|tinyurl\.com|t\.co|cutt\.ly|shorturl\.at|ow\.ly|is\.gd|goo\.gl|rb\.gy|rebrand\.ly)$/i;
 var MULTI_LABEL_SUFFIXES = /* @__PURE__ */ new Set(["co.uk", "com.au", "co.nz", "co.jp", "gouv.fr"]);
-var FREE_MAIL = /^(?:gmail\.com|outlook\.com|hotmail\.com|live\.com|yahoo\.fr|yahoo\.com|orange\.fr|sfr\.fr|free\.fr)$/i;
+var FREE_MAIL = /^(?:gmail\.com|googlemail\.com|outlook\.com|outlook\.fr|hotmail\.com|hotmail\.fr|live\.com|live\.fr|msn\.com|yahoo\.fr|yahoo\.com|icloud\.com|me\.com|proton\.me|protonmail\.com|gmx\.fr|gmx\.com|aol\.com|laposte\.net|wanadoo\.fr|orange\.fr|sfr\.fr|neuf\.fr|free\.fr|bbox\.fr|numericable\.fr)$/i;
 var SAFE_DOMAINS = /* @__PURE__ */ new Set(["example.com", "example.org", "example.net"]);
 var EXEC_EXT = /\.(?:exe|msi|scr|bat|cmd|com|ps1|vbs|vbe|js|jse|hta|jar|apk|dmg|pkg)(?:$|[?#])/i;
 var AMBIGUOUS_ALIASES = /* @__PURE__ */ new Set(["free", "orange", "meta", "apple", "google", "amazon"]);
@@ -891,11 +902,23 @@ function rootDomain(host) {
   const suffix = p.slice(-2).join(".");
   return MULTI_LABEL_SUFFIXES.has(suffix) && p.length >= 3 ? p.slice(-3).join(".") : registeredDomain(h);
 }
+var EMAIL_ADDRESS = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+var FILE_LIKE_TLDS = /* @__PURE__ */ new Set(["zip", "mov", "md", "py", "sh"]);
+function nakedDomainIsLink(value) {
+  const host = value.split(/[/:]/)[0];
+  if (!plausibleNakedHost(host)) return false;
+  if (value.length > host.length) return true;
+  const labels = host.split(".");
+  const tld = labels[labels.length - 1];
+  if (/^[A-Z][a-z]/.test(tld)) return false;
+  if (labels.length === 2 && FILE_LIKE_TLDS.has(tld.toLowerCase())) return false;
+  return true;
+}
 function urlsIn(text) {
   const direct = [...text.matchAll(/https?:\/\/[^\s<>"']+/gi)].map((m) => m[0].replace(/[),.;!?]+$/, ""));
-  const scrubbed = text.replace(/https?:\/\/[^\s<>"']+/gi, " ");
-  const www = [...scrubbed.matchAll(/(?:www\.)[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?(?:\/[^\s<>"']*)?/gi)].map((m) => "https://" + m[0].replace(/[),.;!?]+$/, ""));
-  const naked = [...scrubbed.matchAll(/(?<![@\p{L}\p{N}])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d+)?(?:\/[^\s<>"']*)?/giu)].map((m) => m[0].replace(/[),.;!?]+$/, "")).filter((v) => !v.toLowerCase().startsWith("www."));
+  const scrubbed = text.replace(/https?:\/\/[^\s<>"']+/gi, " ").replace(EMAIL_ADDRESS, " ");
+  const www = [...scrubbed.matchAll(/(?<![\p{L}\p{N}._-])(?:www\.)[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?(?:\/[^\s<>"']*)?/giu)].map((m) => "https://" + m[0].replace(/[),.;!?]+$/, ""));
+  const naked = [...scrubbed.matchAll(/(?<![@\p{L}\p{N}._\/-])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d+)?(?:\/[^\s<>"']*)?/giu)].map((m) => m[0].replace(/[),.;!?]+$/, "")).filter((v) => !v.toLowerCase().startsWith("www.") && nakedDomainIsLink(v));
   return [...new Set([...direct, ...www, ...naked.map((v) => "https://" + v)].map((v) => v.replace(/&amp;/gi, "&")))];
 }
 function domainOf(u) {
@@ -905,9 +928,19 @@ function domainOf(u) {
     return null;
   }
 }
-function officialFor(host) {
+function domainsOf(e) {
+  return e.also ? [e.domain, ...e.also] : [e.domain];
+}
+function hostIn(host, domain) {
+  if (!host) return false;
   const h = host.toLowerCase().replace(/\.$/, "");
-  return REGISTRY.find((e) => e.domain === h || h.endsWith("." + e.domain))?.name || null;
+  return h === domain || h.endsWith("." + domain);
+}
+function belongsTo(e, host) {
+  return domainsOf(e).some((d) => hostIn(host, d));
+}
+function officialFor(host) {
+  return REGISTRY.find((e) => belongsTo(e, host))?.name || null;
 }
 function similarity(a, b) {
   const s = a.toLowerCase(), t = b.toLowerCase();
@@ -1062,9 +1095,10 @@ function analyzeText(input) {
   }
   const identity = { claimedBrand: claimed?.name || null, officialDomain: claimed?.domain || null, sender: sender?.email || null, senderDomain: sender?.rootDomain || null, status: "unknown" };
   if (claimed && sender?.rootDomain) {
-    if (sender.rootDomain === claimed.domain) identity.status = "official";
+    const ownMailbox = belongsTo(claimed, sender.domain) && (sender.rootDomain === claimed.domain || !FREE_MAIL.test(sender.rootDomain));
+    if (ownMailbox) identity.status = "official";
     else {
-      const sim = similarity(sender.rootDomain, claimed.domain);
+      const sim = Math.max(...domainsOf(claimed).map((d) => similarity(sender.rootDomain, d)));
       identity.status = sim >= 0.72 ? "lookalike" : "mismatch";
       reasons.push(identity.status === "lookalike" ? "L\u2019adresse de l\u2019exp\xE9diteur ressemble au domaine officiel sans lui correspondre." : "L\u2019exp\xE9diteur d\xE9tect\xE9 ne correspond pas au domaine officiel attendu.");
       risk += identity.status === "lookalike" ? 3 : 2;
@@ -1079,14 +1113,14 @@ function analyzeText(input) {
     reasons.push("L\u2019exp\xE9diteur utilise une messagerie grand public alors qu\u2019il se pr\xE9sente comme un organisme.");
     risk += 2;
   }
-  if (claimed && foundUrls.length && !urlData.some((u) => u.rootDomain === claimed.domain)) {
+  if (claimed && foundUrls.length && !urlData.some((u) => belongsTo(claimed, u.host))) {
     reasons.push("Le message cite un organisme mais aucun lien ne correspond \xE0 son domaine officiel.");
     risk += 4;
   }
   for (const u of urlData) {
     if (u.rootDomain && !u.official && !SAFE_DOMAINS.has(u.rootDomain)) {
-      const near = REGISTRY.filter((e) => e.domain.length >= 8).map((e) => ({ e, score: similarity(u.rootDomain, e.domain) })).sort((a, b) => b.score - a.score)[0];
-      if (near && near.score >= 0.72 && near.e.domain !== u.rootDomain) {
+      const near = REGISTRY.flatMap(domainsOf).filter((d) => d.length >= 8).map((d) => ({ d, score: similarity(u.rootDomain, d) })).sort((a, b) => b.score - a.score)[0];
+      if (near && near.score >= 0.72 && near.d !== u.rootDomain) {
         reasons.push("Le domaine du lien ressemble \xE0 un domaine officiel sans lui correspondre.");
         risk += 3;
       }

@@ -2,14 +2,20 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#173d34" />
     <meta name="description" content="VÉRIF — Un doute ? Vérifie avant d'agir." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="VÉRIF" />
+    <meta name="referrer" content="no-referrer" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>VÉRIF</title>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>VÉRIF a besoin de JavaScript pour analyser le contenu sur ton appareil.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -30,19 +30,98 @@ test('DNS/RDAP failure leaves the deterministic result usable',async({page})=>{
 });
 test('text import keeps existing file analysis',async({page})=>{
   await page.goto(base);
-  await page.locator('input[type=file]').setInputFiles({name:'message.txt',mimeType:'text/plain',buffer:Buffer.from('Achète des coupons Transcash et envoie-moi les codes.')});
+  await page.locator('input[type=file]').first().setInputFiles({name:'message.txt',mimeType:'text/plain',buffer:Buffer.from('Achète des coupons Transcash et envoie-moi les codes.')});
   await expect(page.locator('.stateLabel')).toContainText(/PRUDENCE|STOP/);
 });
 test('spreadsheet import keeps extracted content',async({page})=>{
   const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['Achète des coupons Transcash et envoie-moi les codes.']]),'Message');
   await page.goto(base);
-  await page.locator('input[type=file]').setInputFiles({name:'message.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:XLSX.write(book,{type:'buffer',bookType:'xlsx'})});
+  await page.locator('input[type=file]').first().setInputFiles({name:'message.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:XLSX.write(book,{type:'buffer',bookType:'xlsx'})});
   await expect(page.locator('.stateLabel')).toContainText(/PRUDENCE|STOP/);
 });
 test('archive with an executable is blocked without executing it',async({page})=>{
   const zip=new JSZip();zip.file('document.exe','not executable test bytes');zip.file('readme.txt','Bonjour');
   await page.goto(base);
-  await page.locator('input[type=file]').setInputFiles({name:'document.zip',mimeType:'application/zip',buffer:await zip.generateAsync({type:'nodebuffer'})});
+  await page.locator('input[type=file]').first().setInputFiles({name:'document.zip',mimeType:'application/zip',buffer:await zip.generateAsync({type:'nodebuffer'})});
   await expect(page.locator('.stateLabel')).toContainText('STOP');
   await expect(page.getByRole('heading',{name:'Archive contenant un exécutable'})).toBeVisible();
+});
+test('content handed over in the URL fragment is analysed and removed from the address bar',async({page})=>{
+  const text='Votre colis est bloqué. Payez 2,99 € immédiatement https://fake.example/colis';
+  await page.goto(base+'#text='+encodeURIComponent(text));
+  await expect(page.locator('.stateLabel')).toContainText('STOP');
+  await expect(page.locator('.inputAgain textarea')).toHaveValue(text);
+  expect(new URL(page.url()).hash).toBe('');
+  expect(new URL(page.url()).search).toBe('');
+});
+test('legacy query-string handover still works',async({page})=>{
+  await page.goto(base+'?url='+encodeURIComponent('https://www.service-public.fr/'));
+  await expect(page.locator('.stateLabel')).toContainText('OK');
+});
+test('history replays the full message, not its truncated label',async({page})=>{
+  const text='Bonjour, ceci est un long message parfaitement anodin qui dépasse largement les quatre-vingts caractères affichés. Votre colis est bloqué. Payez 2,99 € immédiatement https://fake.example/colis';
+  await page.goto(base);
+  await page.locator('textarea').first().fill(text);
+  await page.getByRole('button',{name:/^VÉRIFIER$/}).click();
+  await expect(page.locator('.stateLabel')).toContainText('STOP');
+  await expect(page.getByRole('button',{name:'REFAIRE',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Nouvelle vérification'}).click();
+  await page.locator('.history button').last().click();
+  await expect(page.locator('.stateLabel')).toContainText('STOP');
+  await expect(page.locator('.inputAgain textarea')).toHaveValue(text);
+});
+test('the same file can be imported twice in a row',async({page})=>{
+  const file={name:'message.txt',mimeType:'text/plain',buffer:Buffer.from('Achète des coupons Transcash et envoie-moi les codes.')};
+  await page.goto(base);
+  await page.locator('input[type=file]').first().setInputFiles(file);
+  await expect(page.locator('.stateLabel')).toContainText(/PRUDENCE|STOP/);
+  await page.getByRole('button',{name:'Nouvelle vérification'}).click();
+  await expect(page.locator('.stateLabel')).toHaveCount(0);
+  await page.locator('input[type=file]').first().setInputFiles(file);
+  await expect(page.locator('.stateLabel')).toContainText(/PRUDENCE|STOP/);
+});
+test('status messages stay visible on the result page',async({page})=>{
+  await page.goto(base);
+  await page.locator('input[type=file]').first().setInputFiles({name:'message.txt',mimeType:'text/plain',buffer:Buffer.from('Bonjour, rendez-vous confirmé demain à 18h.')});
+  await expect(page.locator('.stateLabel')).toContainText('OK');
+  await expect(page.locator('.result .notice')).toContainText('message.txt');
+});
+test('scripts and Android packages are reported instead of failing',async({page})=>{
+  await page.goto(base);
+  await page.locator('input[type=file]').first().setInputFiles({name:'facture.apk',mimeType:'application/vnd.android.package-archive',buffer:Buffer.from('PK')});
+  await expect(page.locator('.stateLabel')).toContainText('PRUDENCE');
+  await expect(page.getByRole('heading',{name:'Application Android hors magasin'})).toBeVisible();
+});
+test('an unsupported file explains what to do',async({page})=>{
+  await page.goto(base);
+  await page.locator('input[type=file]').first().setInputFiles({name:'donnees.bin',mimeType:'application/octet-stream',buffer:Buffer.from([0,1,2,3])});
+  await expect(page.getByRole('heading',{name:'Fichier non analysable automatiquement'})).toBeVisible();
+  await expect(page.locator('.result .notice')).toContainText('pas pris en charge');
+});
+test('a legitimate e-mail with a dotted sender address is not flagged',async({page})=>{
+  await page.goto(base);
+  await page.locator('textarea').first().fill('From: Ameli <service.client@ameli.fr>\nBonjour, votre attestation est disponible dans votre compte ameli.');
+  await page.getByRole('button',{name:/^VÉRIFIER$/}).click();
+  await expect(page.locator('.stateLabel')).toContainText('OK');
+  await expect(page.getByText('Liens détectés')).toHaveCount(0);
+});
+test('help and privacy pages are reachable on a phone',async({page})=>{
+  await page.setViewportSize({width:390,height:800});
+  await page.goto(base);
+  await page.locator('footer').getByRole('button',{name:'Confidentialité'}).click();
+  await expect(page.getByRole('heading',{name:'Tes données restent sous ton contrôle.'})).toBeVisible();
+  await page.getByRole('button',{name:'Retour',exact:true}).click();
+  await expect(page.locator('textarea').first()).toBeVisible();
+});
+test('the app shell opens offline after the first visit',async({page,context})=>{
+  await page.goto(base);
+  await page.evaluate(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));});
+  await page.reload();
+  await expect(page.locator('textarea').first()).toBeVisible();
+  await context.setOffline(true);
+  await page.reload();
+  await page.locator('textarea').first().fill('Votre colis est bloqué. Payez 2,99 € immédiatement https://fake.example/colis');
+  await page.getByRole('button',{name:/^VÉRIFIER$/}).click();
+  await expect(page.locator('.stateLabel')).toContainText('STOP');
+  await context.setOffline(false);
 });

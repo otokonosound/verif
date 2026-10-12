@@ -1,7 +1,7 @@
 const REPORTING = {
   sms: { label: "Signaler le SMS au 33700", url: "https://www.33700.fr/accueil/sms/" },
   email: { label: "Signaler l'e-mail à Signal Spam", url: "https://www.signal-spam.fr/" },
-  site: { label: "Signaler le site à Phishing Initiative", url: "https://www.phishing-initiative.fr.phishing-initiative.fr/contrib/?lang=fr" },
+  site: { label: "Signaler le site à Phishing Initiative", url: "https://phishing-initiative.fr/contrib/" },
   authorities: { label: "Signaler aux autorités via PHAROS", url: "https://www.internet-signalement.gouv.fr/" }
 };
 
